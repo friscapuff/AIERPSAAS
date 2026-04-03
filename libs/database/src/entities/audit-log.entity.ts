@@ -2,7 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 
 @Entity('audit_logs')
 @Index(['tenant_id', 'created_at'])
-@Index(['user_id'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -10,39 +9,24 @@ export class AuditLog {
   @Column('uuid')
   tenant_id: string;
 
-  @Column('uuid', { nullable: true })
+  @Column('uuid')
   user_id: string;
 
-  @Column()
+  @Column('varchar')
   action: string;
 
-  @Column({ nullable: true })
-  module: string;
-
-  @Column({ nullable: true })
+  @Column('varchar')
   entity_type: string;
 
-  @Column('uuid', { nullable: true })
+  @Column('uuid')
   entity_id: string;
 
   @Column('jsonb', { nullable: true })
-  old_values: Record<string, any>;
+  old_values: any;
 
   @Column('jsonb', { nullable: true })
-  new_values: Record<string, any>;
-
-  @Column({ nullable: true })
-  ip_address: string;
-
-  @Column({ nullable: true })
-  user_agent: string;
-
-  @Column({ default: 'success' })
-  status: string;
-
-  @Column({ nullable: true })
-  error_message: string;
+  new_values: any;
 
   @CreateDateColumn()
-  timestamp: Date;
+  created_at: Date;
 }

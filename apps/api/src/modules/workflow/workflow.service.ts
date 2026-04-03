@@ -1,37 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Workflow } from 'libs/database/src/entities/workflow.entity';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class WorkflowService {
-  private readonly logger = new Logger(WorkflowService.name);
-
-  constructor(
-    @InjectRepository(Workflow)
-    private workflowRepository: Repository<Workflow>,
-  ) {}
-
-  async createWorkflow(tenantId: string, userId: string, dto: any) {
-    const workflow = this.workflowRepository.create({
-      ...dto,
-      tenant_id: tenantId,
-      created_by: userId,
-    });
-
-    return this.workflowRepository.save(workflow);
+  async getDefinitions(tenantId: string) {
+    return { data: [] };
   }
 
-  async getWorkflows(tenantId: string) {
-    return this.workflowRepository.find({
-      where: { tenant_id: tenantId },
-    });
+  async createDefinition(tenantId: string, data: any) {
+    return { id: 'workflow-1', ...data };
   }
 
-  async deleteWorkflow(tenantId: string, workflowId: string) {
-    return this.workflowRepository.delete({
-      id: workflowId,
-      tenant_id: tenantId,
-    });
+  async execute(tenantId: string, data: any) {
+    return { executionId: 'exec-1', status: 'running' };
   }
 }

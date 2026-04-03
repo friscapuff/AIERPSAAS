@@ -1,36 +1,28 @@
-import { Controller, Get, Post, Body, UseGuards, Logger, Delete, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { WorkflowService } from './workflow.service';
 
-@ApiTags('Workflows')
-@Controller('workflows')
+@ApiTags('Workflow')
+@Controller('api/v1/workflow')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('bearer')
 export class WorkflowController {
-  private readonly logger = new Logger(WorkflowController.name);
-
   constructor(private readonly workflowService: WorkflowService) {}
 
-  @Post()
-  async createWorkflow(
-    @CurrentUser() user: any,
-    @Body() dto: any,
-  ) {
-    return this.workflowService.createWorkflow(user.tenant_id, user.id, dto);
+  @Get('definitions')
+  getDefinitions(@CurrentTenant() tenantId: string) {
+    return this.workflowService.getDefinitions(tenantId);
   }
 
-  @Get()
-  async getWorkflows(@CurrentUser() user: any) {
-    return this.workflowService.getWorkflows(user.tenant_id);
+  @Post('definitions')
+  createDefinition(@Body() data: any, @CurrentTenant() tenantId: string) {
+    return this.workflowService.createDefinition(tenantId, data);
   }
 
-  @Delete(':id')
-  async deleteWorkflow(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
-    return this.workflowService.deleteWorkflow(user.tenant_id, id);
+  @Post('execute')
+  executeWorkflow(@Body() data: any, @CurrentTenant() tenantId: string) {
+    return this.workflowService.execute(tenantId, data);
   }
 }
