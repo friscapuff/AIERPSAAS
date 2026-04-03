@@ -1,55 +1,32 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { InventoryService } from './inventory.service';
+import { Controller, Get, Post, Body, UseGuards, Logger, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { InventoryService } from './inventory.service';
 
-interface InventoryMovementDto {
-  productId: string;
-  warehouseId: string;
-  quantity: number;
-  movementType: 'in' | 'out' | 'adjustment';
-  referenceId?: string;
-}
-
+@ApiTags('Inventory')
 @Controller('inventory')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class InventoryController {
+  private readonly logger = new Logger(InventoryController.name);
+
   constructor(private readonly inventoryService: InventoryService) {}
 
-  @Get('items')
-  async getInventoryItems() {
-    return this.inventoryService.getItems();
-  }
-
-  @Get('items/:id')
-  async getInventoryItem(@Param('id') id: string) {
-    return this.inventoryService.getItem(id);
-  }
-
   @Post('movements')
-  async recordMovement(
-    @Body() movementDto: InventoryMovementDto,
+  async logMovement(
+    @CurrentUser() user: any,
+    @Body() dto: any,
   ) {
-    return this.inventoryService.recordMovement(movementDto);
+    return this.inventoryService.logMovement(user.tenant_id, user.id, dto);
   }
 
   @Get('movements')
   async getMovements(
-    @Query('productId') productId?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @CurrentUser() user: any,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
   ) {
-    return this.inventoryService.getMovements(
-      productId,
-      startDate,
-      endDate,
-    );
+    return this.inventoryService.getMovements(user.tenant_id, page, limit);
   }
 }
