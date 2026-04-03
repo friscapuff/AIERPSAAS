@@ -1,60 +1,37 @@
-import { Injectable } from '@nestjs/common';
-
-interface Workflow {
-  id: string;
-  workflowName: string;
-  description?: string;
-  definition: Record<string, any>;
-  isActive: boolean;
-  createdAt: Date;
-}
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Workflow } from 'libs/database/src/entities/workflow.entity';
 
 @Injectable()
 export class WorkflowService {
-  private workflows: Map<string, Workflow> = new Map();
+  private readonly logger = new Logger(WorkflowService.name);
 
-  async getWorkflows() {
-    return Array.from(this.workflows.values());
+  constructor(
+    @InjectRepository(Workflow)
+    private workflowRepository: Repository<Workflow>,
+  ) {}
+
+  async createWorkflow(tenantId: string, userId: string, dto: any) {
+    const workflow = this.workflowRepository.create({
+      ...dto,
+      tenant_id: tenantId,
+      created_by: userId,
+    });
+
+    return this.workflowRepository.save(workflow);
   }
 
-  async getWorkflow(id: string) {
-    return this.workflows.get(id);
+  async getWorkflows(tenantId: string) {
+    return this.workflowRepository.find({
+      where: { tenant_id: tenantId },
+    });
   }
 
-  async createWorkflow(createWorkflowDto: any) {
-    const id = Math.random().toString(36).substr(2, 9);
-    const workflow: Workflow = {
-      id,
-      ...createWorkflowDto,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    this.workflows.set(id, workflow);
-    return workflow;
-  }
-
-  async updateWorkflow(id: string, updateWorkflowDto: any) {
-    const workflow = this.workflows.get(id);
-    if (!workflow) return null;
-    const updated = { ...workflow, ...updateWorkflowDto };
-    this.workflows.set(id, updated);
-    return updated;
-  }
-
-  async deleteWorkflow(id: string) {
-    this.workflows.delete(id);
-    return { id, deleted: true };
-  }
-
-  async executeWorkflow(id: string, payload: any) {
-    const workflow = this.workflows.get(id);
-    if (!workflow) return null;
-    return {
-      workflowId: id,
-      executionId: Math.random().toString(36).substr(2, 9),
-      status: 'started',
-      payload,
-      timestamp: new Date(),
-    };
+  async deleteWorkflow(tenantId: string, workflowId: string) {
+    return this.workflowRepository.delete({
+      id: workflowId,
+      tenant_id: tenantId,
+    });
   }
 }

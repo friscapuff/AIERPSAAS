@@ -1,48 +1,55 @@
-import { Injectable } from '@nestjs/common';
-
-interface Webhook {
-  id: string;
-  eventType: string;
-  url: string;
-  headers?: Record<string, string>;
-  isActive: boolean;
-  createdAt: Date;
-}
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Webhook } from 'libs/database/src/entities/webhook.entity';
 
 @Injectable()
 export class WebhooksService {
-  private webhooks: Map<string, Webhook> = new Map();
+  private readonly logger = new Logger(WebhooksService.name);
 
-  async getWebhooks() {
-    return Array.from(this.webhooks.values());
+  constructor(
+    @InjectRepository(Webhook)
+    private webhookRepository: Repository<Webhook>,
+  ) {}
+
+  async createWebhook(tenantId: string, userId: string, dto: any) {
+    const webhook = this.webhookRepository.create({
+      ...dto,
+      tenant_id: tenantId,
+      created_by: userId,
+    });
+
+    return this.webhookRepository.save(webhook);
   }
 
-  async getWebhook(id: string) {
-    return this.webhooks.get(id);
+  async getWebhooks(tenantId: string) {
+    return this.webhookRepository.find({
+      where: { tenant_id: tenantId },
+    });
   }
 
-  async createWebhook(createWebhookDto: any) {
-    const id = Math.random().toString(36).substr(2, 9);
-    const webhook: Webhook = {
-      id,
-      ...createWebhookDto,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    this.webhooks.set(id, webhook);
-    return webhook;
+  async deleteWebhook(tenantId: string, webhookId: string) {
+    return this.webhookRepository.delete({
+      id: webhookId,
+      tenant_id: tenantId,
+    });
   }
 
-  async updateWebhook(id: string, updateWebhookDto: any) {
-    const webhook = this.webhooks.get(id);
-    if (!webhook) return null;
-    const updated = { ...webhook, ...updateWebhookDto };
-    this.webhooks.set(id, updated);
-    return updated;
-  }
+  async triggerWebhook(webhookId: string, payload: any) {
+    const webhook = await this.webhookRepository.findOne({
+      where: { id: webhookId },
+    });
 
-  async deleteWebhook(id: string) {
-    this.webhooks.delete(id);
-    return { id, deleted: true };
+    if (!webhook) {
+      this.logger.warn(`Webhook ${webhookId} not found`);
+      return;
+    }
+
+    try {
+      // TODO: Implement actual webhook triggering (HTTP request)
+      this.logger.log(`Webhook ${webhookId} triggered with payload: ${JSON.stringify(payload)}`);
+    } catch (error) {
+      this.logger.error(`Failed to trigger webhook: ${error.message}`);
+    }
   }
 }

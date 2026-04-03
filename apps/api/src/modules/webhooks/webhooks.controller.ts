@@ -1,52 +1,36 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
-import { WebhooksService } from './webhooks.service';
+import { Controller, Get, Post, Body, UseGuards, Logger, Delete, Param } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { WebhooksService } from './webhooks.service';
 
-interface CreateWebhookDto {
-  eventType: string;
-  url: string;
-  headers?: Record<string, string>;
-}
-
+@ApiTags('Webhooks')
 @Controller('webhooks')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class WebhooksController {
+  private readonly logger = new Logger(WebhooksController.name);
+
   constructor(private readonly webhooksService: WebhooksService) {}
 
-  @Get()
-  async getWebhooks() {
-    return this.webhooksService.getWebhooks();
-  }
-
-  @Get(':id')
-  async getWebhook(@Param('id') id: string) {
-    return this.webhooksService.getWebhook(id);
-  }
-
   @Post()
-  async createWebhook(@Body() createWebhookDto: CreateWebhookDto) {
-    return this.webhooksService.createWebhook(createWebhookDto);
+  async createWebhook(
+    @CurrentUser() user: any,
+    @Body() dto: any,
+  ) {
+    return this.webhooksService.createWebhook(user.tenant_id, user.id, dto);
   }
 
-  @Put(':id')
-  async updateWebhook(
-    @Param('id') id: string,
-    @Body() updateWebhookDto: Partial<CreateWebhookDto>,
-  ) {
-    return this.webhooksService.updateWebhook(id, updateWebhookDto);
+  @Get()
+  async getWebhooks(@CurrentUser() user: any) {
+    return this.webhooksService.getWebhooks(user.tenant_id);
   }
 
   @Delete(':id')
-  async deleteWebhook(@Param('id') id: string) {
-    return this.webhooksService.deleteWebhook(id);
+  async deleteWebhook(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.webhooksService.deleteWebhook(user.tenant_id, id);
   }
 }

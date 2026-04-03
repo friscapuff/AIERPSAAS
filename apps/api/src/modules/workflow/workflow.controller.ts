@@ -1,60 +1,36 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
-import { WorkflowService } from './workflow.service';
+import { Controller, Get, Post, Body, UseGuards, Logger, Delete, Param } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { WorkflowService } from './workflow.service';
 
-interface CreateWorkflowDto {
-  workflowName: string;
-  description?: string;
-  definition: Record<string, any>;
-}
-
+@ApiTags('Workflows')
 @Controller('workflows')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class WorkflowController {
+  private readonly logger = new Logger(WorkflowController.name);
+
   constructor(private readonly workflowService: WorkflowService) {}
 
-  @Get()
-  async getWorkflows() {
-    return this.workflowService.getWorkflows();
-  }
-
-  @Get(':id')
-  async getWorkflow(@Param('id') id: string) {
-    return this.workflowService.getWorkflow(id);
-  }
-
   @Post()
-  async createWorkflow(@Body() createWorkflowDto: CreateWorkflowDto) {
-    return this.workflowService.createWorkflow(createWorkflowDto);
+  async createWorkflow(
+    @CurrentUser() user: any,
+    @Body() dto: any,
+  ) {
+    return this.workflowService.createWorkflow(user.tenant_id, user.id, dto);
   }
 
-  @Put(':id')
-  async updateWorkflow(
-    @Param('id') id: string,
-    @Body() updateWorkflowDto: Partial<CreateWorkflowDto>,
-  ) {
-    return this.workflowService.updateWorkflow(id, updateWorkflowDto);
+  @Get()
+  async getWorkflows(@CurrentUser() user: any) {
+    return this.workflowService.getWorkflows(user.tenant_id);
   }
 
   @Delete(':id')
-  async deleteWorkflow(@Param('id') id: string) {
-    return this.workflowService.deleteWorkflow(id);
-  }
-
-  @Post(':id/execute')
-  async executeWorkflow(
+  async deleteWorkflow(
+    @CurrentUser() user: any,
     @Param('id') id: string,
-    @Body() payload: Record<string, any>,
   ) {
-    return this.workflowService.executeWorkflow(id, payload);
+    return this.workflowService.deleteWorkflow(user.tenant_id, id);
   }
 }
