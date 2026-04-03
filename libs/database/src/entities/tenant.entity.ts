@@ -5,20 +5,20 @@ export class Tenant {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column('varchar')
   name: string;
 
-  @Column({ unique: true })
+  @Column('varchar', { unique: true })
   slug: string;
 
-  @Column({ nullable: true })
+  @Column('text', { nullable: true })
   description: string;
 
   @Column('boolean', { default: true })
   is_active: boolean;
 
-  @Column('jsonb', { default: '{}' })
-  settings: Record<string, any>;
+  @Column('jsonb', { nullable: true })
+  settings: any;
 
   @CreateDateColumn()
   created_at: Date;

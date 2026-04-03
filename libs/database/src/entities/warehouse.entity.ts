@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity('roles')
-export class Role {
+@Entity('warehouses')
+export class Warehouse {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -11,8 +11,11 @@ export class Role {
   @Column('varchar')
   name: string;
 
-  @Column('text', { nullable: true })
-  description: string;
+  @Column('varchar')
+  location: string;
+
+  @Column('integer')
+  capacity: number;
 
   @Column('boolean', { default: true })
   is_active: boolean;

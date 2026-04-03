@@ -1,7 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('chart_of_accounts')
-@Index(['tenant_id', 'account_number'])
 export class ChartOfAccounts {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -9,26 +8,17 @@ export class ChartOfAccounts {
   @Column('uuid')
   tenant_id: string;
 
-  @Column()
+  @Column('varchar')
   account_number: string;
 
-  @Column()
+  @Column('varchar')
   account_name: string;
 
-  @Column()
+  @Column('varchar')
   account_type: string;
 
-  @Column({ nullable: true })
-  description: string;
-
-  @Column('numeric', { precision: 19, scale: 2, default: 0 })
-  opening_balance: number;
-
-  @Column('boolean', { default: true })
-  is_active: boolean;
-
-  @Column()
-  created_by: string;
+  @Column('decimal', { precision: 15, scale: 2 })
+  balance: number;
 
   @CreateDateColumn()
   created_at: Date;

@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('users')
-export class User {
+@Entity('products')
+export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -9,22 +9,25 @@ export class User {
   tenant_id: string;
 
   @Column('varchar', { unique: true })
-  email: string;
+  sku: string;
 
   @Column('varchar')
-  password_hash: string;
+  name: string;
+
+  @Column('text', { nullable: true })
+  description: string;
 
   @Column('varchar')
-  first_name: string;
+  category: string;
 
-  @Column('varchar')
-  last_name: string;
+  @Column('decimal', { precision: 10, scale: 2 })
+  unit_cost: number;
+
+  @Column('decimal', { precision: 10, scale: 2 })
+  selling_price: number;
 
   @Column('boolean', { default: true })
   is_active: boolean;
-
-  @Column('timestamp', { nullable: true })
-  last_login: Date;
 
   @CreateDateColumn()
   created_at: Date;
