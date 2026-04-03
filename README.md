@@ -1,55 +1,49 @@
 # AiERP SaaS Platform
 
-AI-driven Enterprise Resource Planning (ERP) SaaS platform built with NestJS, React, and PostgreSQL.
+A modern, multi-tenant ERP system built with NestJS, React, and PostgreSQL.
 
-## Architecture Overview
+## Features
 
-- **Backend**: NestJS (Node.js)
-- **Frontend**: React
-- **Database**: PostgreSQL
-- **Cache**: Redis
-- **Multi-tenancy**: Row-Level Security (RLS)
+- Multi-tenant architecture with tenant isolation via Row-Level Security (RLS)
+- Authentication & Authorization (JWT, OAuth, RBAC)
+- Comprehensive RBAC system with roles and permissions
+- Inventory management
+- Audit logging
+- Workflow engine
+- Real-time notifications
+- Advanced reporting
+- Multi-currency support
 
-## Project Structure
+## Tech Stack
 
-```
-aierp/
-├── src/
-│   ├── modules/
-│   │   ├── auth/
-│   │   ├── users/
-│   │   ├── tenants/
-│   │   ├── general-ledger/
-│   │   ├── accounts-payable/
-│   │   ├── accounts-receivable/
-│   │   ├── inventory/
-│   │   ├── fixed-assets/
-│   │   ├── payroll/
-│   │   ├── dynamic-builder/
-│   │   └── reporting/
-│   ├── database/
-│   ├── common/
-│   └── main.ts
-├── test/
-├── docker-compose.yml
-├── package.json
-└── tsconfig.json
-```
+**Backend:**
+- NestJS (Node.js framework)
+- TypeScript
+- PostgreSQL (Database)
+- Redis (Caching & sessions)
+- TypeORM (ORM)
+
+**Frontend:**
+- React
+- TypeScript
+- Redux/Zustand (State management)
+- Material-UI or Tailwind (Styling)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
+- Node.js >= 18
+- PostgreSQL >= 14
+- Redis >= 7
+- npm or yarn
 
 ### Installation
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/mohWatheq/AIERPSAAS.git
-   cd aierp
+   git clone https://github.com/friscapuff/AIERPSAAS.git
+   cd AIERPSAAS
    ```
 
 2. Install dependencies
@@ -57,44 +51,58 @@ aierp/
    npm install
    ```
 
-3. Set up environment variables
+3. Configure environment variables
    ```bash
-  cp .env.example .env
+   cp .env.example .env
+   # Edit .env with your configuration
    ```
 
-4. Start PostgreSQL and Redis
-   ```bash
-   docker-compose up -d
-   ```
-
-5. Run database migrations
+4. Run database migrations
    ```bash
    npm run migration:run
    ```
 
-6. Start the development server
+5. Start the development server
    ```bash
    npm run start:dev
    ```
 
-## Development
+## Project Structure
 
-### Running Tests
-
-```bash
-npm test
 ```
-
-### Code Quality
-
-```bash
-npm run lint
-npm run format
+src/
+├── config/              # Configuration files
+├── common/              # Shared utilities, decorators, filters
+├── modules/             # Feature modules
+│   ├── auth/            # Authentication & Authorization
+│   ├── users/           # User management
+│   ├── tenants/         # Tenant management
+│   ├── inventory/       # Inventory management
+│   ├── audit/           # Audit logging
+│   └── workflow/        # Workflow engine
+├── database/            # Migrations, seeders
+└── main.ts              # Application entry point
 ```
 
 ## API Documentation
 
-Once the server is running, visit `http://localhost:3000/api/docs` for Swagger documentation.
+Swagger API documentation is available at `/api/docs` when running in development mode.
+
+## Testing
+
+```bash
+# Unit tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Coverage
+npm run test:cov
+
+# E2E tests
+npm run test:e2e
+```
 
 ## License
 
