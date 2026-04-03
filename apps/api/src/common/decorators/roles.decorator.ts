@@ -14,5 +14,4 @@ export const ROLES_KEY = 'roles';
  * @Roles({ module: 'finance', actions: ['Create', 'Read'] })
  * @Roles({ module: 'admin' })
  */
-export const Roles = (...roles: RolePermission[]) =>
-  SetMetadata(ROLES_KEY, roles);
+export const Roles = (...permissions: RolePermission[]) => SetMetadata(ROLES_KEY, permissions);

@@ -1,44 +1,81 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY, RolePermission } from '../decorators/roles.decorator';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+
+export interface RolePermission {
+  module: string;
+  actions: string[];
+}
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<RolePermission[]>(
-      ROLES_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredRoles = this.reflector.getAllAndOverride<RolePermission[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
-    if (!requiredRoles) {
-      return true; // No role requirement
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not found');
+      throw new ForbiddenException('User context is required');
     }
 
-    const userRoles = user.roles || [];
+    if (!user.roles || user.roles.length === 0) {
+      throw new ForbiddenException('User has no roles assigned');
+    }
 
-    const hasPermission = requiredRoles.some((required) =>
-      userRoles.some(
-        (userRole) =>
-          userRole.module === required.module &&
-          (!required.actions ||
-            required.actions.some((action) =>
-              userRole.actions?.includes(action),
-            )),
-      ),
-    );
+    const hasRequiredRole = this.matchRoles(user.roles, requiredRoles);
 
-    if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
+    if (!hasRequiredRole) {
+      this.logger.warn(
+        `Access denied for user ${user.id} attempting to access module with roles: ${user.roles.join(', ')}`,
+      );
+      throw new ForbiddenException('Insufficient permissions to access this resource');
     }
 
     return true;
+  }
+
+  private matchRoles(userRoles: string[], requiredRoles: RolePermission[]): boolean {
+    return requiredRoles.some((requiredRole) => {
+      // Check if user has the required module role
+      const hasModuleRole = userRoles.some(
+        (role) =>
+          role === requiredRole.module ||
+          role === `${requiredRole.module}:*` ||
+          role === 'admin' ||
+          role === 'super_admin',
+      );
+
+      if (!hasModuleRole) {
+        return false;
+      }
+
+      // If specific actions are required, check them
+      if (requiredRole.actions && requiredRole.actions.length > 0) {
+        return requiredRole.actions.every(
+          (action) =>
+            userRoles.some(
+              (role) =>
+                role === `${requiredRole.module}:${action}` ||
+                role === `${requiredRole.module}:*` ||
+                role === 'admin' ||
+                role === 'super_admin',
+            ),
+        );
+      }
+
+      return true;
+    });
   }
 }
