@@ -1,40 +1,31 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ReportingService } from './reporting.service';
+import { Controller, Get, UseGuards, Logger, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ReportingService } from './reporting.service';
 
-@Controller('reporting')
+@ApiTags('Reporting')
+@Controller('reports')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class ReportingController {
+  private readonly logger = new Logger(ReportingController.name);
+
   constructor(private readonly reportingService: ReportingService) {}
 
-  @Get('reports')
-  async getReports() {
-    return this.reportingService.getReports();
-  }
-
-  @Get('reports/financial')
-  async getFinancialReports(
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
+  @Get('financial-summary')
+  async getFinancialSummary(
+    @CurrentUser() user: any,
+    @Query('period') period: string,
   ) {
-    return this.reportingService.getFinancialReports(startDate, endDate);
+    return this.reportingService.getFinancialSummary(user.tenant_id, period);
   }
 
-  @Get('reports/operational')
-  async getOperationalReports(
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
+  @Get('inventory-status')
+  async getInventoryStatus(
+    @CurrentUser() user: any,
+    @Query('warehouseId') warehouseId?: string,
   ) {
-    return this.reportingService.getOperationalReports(startDate, endDate);
-  }
-
-  @Get('dashboards')
-  async getDashboards() {
-    return this.reportingService.getDashboards();
-  }
-
-  @Get('kpis')
-  async getKPIs() {
-    return this.reportingService.getKPIs();
+    return this.reportingService.getInventoryStatus(user.tenant_id, warehouseId);
   }
 }

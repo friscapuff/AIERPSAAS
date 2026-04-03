@@ -1,45 +1,46 @@
-import { Injectable } from '@nestjs/common';
-
-interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  subscriptionTier: string;
-  status: string;
-  createdAt: Date;
-}
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Tenant } from 'libs/database/src/entities/tenant.entity';
 
 @Injectable()
 export class TenantsService {
-  private tenants: Map<string, Tenant> = new Map();
+  private readonly logger = new Logger(TenantsService.name);
 
-  async getTenants() {
-    return Array.from(this.tenants.values());
+  constructor(
+    @InjectRepository(Tenant)
+    private tenantRepository: Repository<Tenant>,
+  ) {}
+
+  async getUserTenants(userId: string) {
+    // TODO: Implement getting user's tenants
+    return [];
   }
 
-  async getTenant(id: string) {
-    return this.tenants.get(id);
-  }
+  async getTenant(userId: string, tenantId: string) {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+    });
 
-  async createTenant(createTenantDto: any) {
-    const id = Math.random().toString(36).substr(2, 9);
-    const tenant: Tenant = {
-      id,
-      ...createTenantDto,
-      subscriptionTier: createTenantDto.subscriptionTier || 'free',
-      status: 'active',
-      createdAt: new Date(),
-    };
-    this.tenants.set(id, tenant);
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // TODO: Verify user has access to this tenant
     return tenant;
   }
 
-  async updateTenant(id: string, updateTenantDto: any) {
-    const tenant = this.tenants.get(id);
-    if (!tenant) return null;
-    const updated = { ...tenant, ...updateTenantDto };
-    this.tenants.set(id, updated);
-    return updated;
+  async updateTenant(userId: string, tenantId: string, dto: any) {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // TODO: Verify user has admin access to this tenant
+    Object.assign(tenant, dto);
+    return this.tenantRepository.save(tenant);
   }
 }
