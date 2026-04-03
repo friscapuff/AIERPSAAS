@@ -4,23 +4,25 @@
   "description": "AI-driven Enterprise Resource Planning SaaS platform",
   "author": "BSTC Team",
   "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
   "scripts": {
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
+    "start": "nest start --path tsconfig.paths.json",
+    "start:dev": "nest start --watch --path tsconfig.paths.json",
+    "start:debug": "nest start --debug --watch --path tsconfig.paths.json",
     "start:prod": "node dist/main",
-    "build": "nest build",
+    "build": "nest build --path tsconfig.paths.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "lint": "eslint 'src/**/*.ts'",
-    "lint:fix": "eslint 'src/**/*.ts' --fix",
-    "format": "prettier --write 'src/**/*.ts'",
+    "lint": "eslint 'apps/**/*.ts' 'libs/**/*.ts'",
+    "lint:fix": "eslint 'apps/**/*.ts' 'libs/**/*.ts' --fix",
+    "format": "prettier --write 'apps/**/*.ts' 'libs/**/*.ts'",
     "migration:create": "typeorm migration:create",
     "migration:run": "typeorm migration:run -d src/database/data-source.ts",
-    "migration:revert": "typeorm migration:revert -d src/database/data-source.ts",
-    "seed": "ts-node src/database/seeds/index.ts"
+    "migration:revert": "typeorm migration:revert -d src/database/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
