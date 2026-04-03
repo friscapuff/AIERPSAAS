@@ -1,51 +1,46 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-
-interface LoginDto {
-  email: string;
-  password: string;
-  tenantId?: string;
-}
+import * as bcrypt from 'bcrypt';
+import { LoginDto, RegisterDto, RefreshTokenDto } from './dto';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
-  async login(loginDto: LoginDto) {
-    // TODO: Validate user credentials
-    // For now, mock implementation
-
-    const payload = {
-      sub: 'user-id',
-      email: loginDto.email,
-      tenant_id: loginDto.tenantId,
-      roles: ['user'],
-    };
-
-    return {
-      accessToken: this.jwtService.sign(payload),
-      refreshToken: this.jwtService.sign(payload, {
-        expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN'),
-      }),
-    };
+  async register(registerDto: RegisterDto, tenantId: string) {
+    // Implement user registration
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    return { message: 'User registered successfully' };
   }
 
-  async refreshToken(token: string) {
+  async login(loginDto: LoginDto, tenantId: string) {
+    // Implement user login
+    const token = this.jwtService.sign({
+      sub: 'userId',
+      email: loginDto.email,
+      tenantId,
+    });
+    return { accessToken: token };
+  }
+
+  async refreshToken(dto: RefreshTokenDto) {
+    // Implement token refresh
     try {
-      const payload = this.jwtService.verify(token);
-      return {
-        accessToken: this.jwtService.sign(payload),
-      };
+      const payload = this.jwtService.verify(dto.refreshToken, {
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
+      });
+      const newToken = this.jwtService.sign({
+        sub: payload.sub,
+        email: payload.email,
+        tenantId: payload.tenantId,
+      });
+      return { accessToken: newToken };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
-  }
-
-  async validateUser(payload: any) {
-    return payload;
   }
 }

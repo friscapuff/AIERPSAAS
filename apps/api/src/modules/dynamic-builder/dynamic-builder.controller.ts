@@ -1,51 +1,33 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { DynamicBuilderService } from './dynamic-builder.service';
+import { CreateTableDto } from './dto/create-table.dto';
 
-interface DynamicFormDto {
-  name: string;
-  description?: string;
-  fields: any[];
-  metadata?: Record<string, any>;
-}
-
+@ApiTags('Dynamic Builder')
 @Controller('dynamic-builder')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('bearer')
 export class DynamicBuilderController {
-  constructor(private readonly dynamicBuilderService: DynamicBuilderService) {}
+  constructor(private readonly service: DynamicBuilderService) {}
 
-  @Get('forms')
-  async getForms() {
-    return this.dynamicBuilderService.getForms();
+  @Post('tables')
+  createTable(@Body() createTableDto: CreateTableDto) {
+    return this.service.createTable(createTableDto);
   }
 
-  @Get('forms/:id')
-  async getForm(@Param('id') id: string) {
-    return this.dynamicBuilderService.getForm(id);
+  @Get('tables')
+  getTables() {
+    return this.service.listTables();
   }
 
-  @Post('forms')
-  async createForm(@Body() createFormDto: DynamicFormDto) {
-    return this.dynamicBuilderService.createForm(createFormDto);
+  @Get('tables/:tableId')
+  getTable(@Param('tableId') tableId: string) {
+    return this.service.getTable(tableId);
   }
 
-  @Put('forms/:id')
-  async updateForm(
-    @Param('id') id: string,
-    @Body() updateFormDto: Partial<DynamicFormDto>,
-  ) {
-    return this.dynamicBuilderService.updateForm(id, updateFormDto);
-  }
-
-  @Delete('forms/:id')
-  async deleteForm(@Param('id') id: string) {
-    return this.dynamicBuilderService.deleteForm(id);
+  @Delete('tables/:tableId')
+  deleteTable(@Param('tableId') tableId: string) {
+    return this.service.deleteTable(tableId);
   }
 }
