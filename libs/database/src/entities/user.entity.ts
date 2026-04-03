@@ -1,32 +1,35 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('users')
-@Index(['tenantId', 'email'], { unique: true })
+@Index(['tenant_id', 'email'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column()
   email: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  passwordHash: string;
+  @Column()
+  password_hash: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  firstName: string;
+  @Column({ nullable: true })
+  first_name: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  lastName: string;
+  @Column({ nullable: true })
+  last_name: string;
 
-  @Column({ type: 'varchar', length: 50, default: 'active' })
-  status: string; // active, inactive, suspended
+  @Column('boolean', { default: true })
+  is_active: boolean;
+
+  @Column('timestamp', { nullable: true })
+  last_login: Date;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 }

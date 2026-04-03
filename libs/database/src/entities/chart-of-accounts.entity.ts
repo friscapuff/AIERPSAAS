@@ -1,32 +1,38 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('chart_of_accounts')
-@Index(['tenantId', 'accountNumber'], { unique: true })
+@Index(['tenant_id', 'account_number'])
 export class ChartOfAccounts {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  accountNumber: string;
+  @Column()
+  account_number: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  accountName: string;
+  @Column()
+  account_name: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  accountType: string; // asset, liability, equity, revenue, expense
+  @Column()
+  account_type: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  normalBalance: string; // debit or credit
+  @Column({ nullable: true })
+  description: string;
 
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  @Column('numeric', { precision: 19, scale: 2, default: 0 })
+  opening_balance: number;
 
-  @Column({ type: 'uuid', name: 'parent_account_id', nullable: true })
-  parentAccountId: string;
+  @Column('boolean', { default: true })
+  is_active: boolean;
+
+  @Column()
+  created_by: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 }

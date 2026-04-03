@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('webhooks')
-export class Webhook {
+@Entity('dynamic_data')
+export class DynamicDataEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -9,13 +9,10 @@ export class Webhook {
   tenant_id: string;
 
   @Column()
-  event_type: string;
+  table_name: string;
 
-  @Column()
-  url: string;
-
-  @Column('boolean', { default: true })
-  is_active: boolean;
+  @Column('jsonb')
+  data: Record<string, any>;
 
   @Column('uuid')
   created_by: string;
@@ -25,4 +22,7 @@ export class Webhook {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @Column('timestamp', { nullable: true })
+  deleted_at: Date;
 }

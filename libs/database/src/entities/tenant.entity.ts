@@ -1,35 +1,28 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('tenants')
-@Index(['slug'], { unique: true })
 export class Tenant {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column()
   name: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ unique: true })
   slug: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ nullable: true })
   description: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  logoUrl: string;
+  @Column('boolean', { default: true })
+  is_active: boolean;
 
-  @Column({ type: 'varchar', length: 50, default: 'active' })
-  status: string; // active, inactive, suspended
-
-  @Column({ type: 'varchar', length: 50, default: 'free' })
-  subscriptionTier: string; // free, pro, enterprise
+  @Column('jsonb', { default: '{}' })
+  settings: Record<string, any>;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
-
-  @DeleteDateColumn()
-  deletedAt: Date;
+  updated_at: Date;
 }

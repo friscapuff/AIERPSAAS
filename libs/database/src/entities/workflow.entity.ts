@@ -1,25 +1,31 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('workflows')
 export class Workflow {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  workflowName: string;
+  @Column()
+  name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ nullable: true })
   description: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column('jsonb')
   definition: Record<string, any>;
 
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  @Column('boolean', { default: true })
+  is_active: boolean;
+
+  @Column('uuid')
+  created_by: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 }

@@ -1,23 +1,29 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('roles')
-@Index(['tenantId', 'roleName'], { unique: true })
+@Index(['tenant_id', 'name'])
 export class Role {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  roleName: string;
+  @Column()
+  name: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  permissions: string[];
+  @Column({ nullable: true })
+  description: string;
 
-  @Column({ type: 'boolean', default: false })
-  isSystemRole: boolean;
+  @Column('jsonb', { default: '{}' })
+  permissions: Record<string, any>;
+
+  @Column('boolean', { default: false })
+  is_system: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 }

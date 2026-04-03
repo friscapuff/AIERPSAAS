@@ -1,39 +1,37 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('gl_transactions')
-@Index(['accountId'])
-@Index(['transactionDate'])
 export class GLTransaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'date' })
-  transactionDate: Date;
+  @Column()
+  transaction_date: Date;
 
-  @Column({ type: 'text', nullable: true })
+  @Column()
+  journal_entry_number: string;
+
+  @Column('uuid')
+  account_id: string;
+
+  @Column()
+  debit: string;
+
+  @Column()
+  credit: string;
+
+  @Column({ nullable: true })
   description: string;
 
-  @Column({ type: 'numeric', precision: 15, scale: 2, nullable: true })
-  debitAmount: number;
-
-  @Column({ type: 'numeric', precision: 15, scale: 2, nullable: true })
-  creditAmount: number;
-
-  @Column({ type: 'uuid', name: 'account_id', nullable: true })
-  accountId: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  referenceNumber: string;
-
-  @Column({ type: 'uuid', name: 'created_by', nullable: true })
-  createdBy: string;
+  @Column()
+  created_by: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 }

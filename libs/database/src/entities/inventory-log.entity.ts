@@ -1,30 +1,29 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity('inventory_logs')
-@Index(['tenantId'])
-@Index(['createdAt'])
+@Index(['tenant_id', 'created_at'])
 export class InventoryLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'uuid', name: 'product_id', nullable: true })
-  productId: string;
+  @Column()
+  item_id: string;
 
-  @Column({ type: 'uuid', name: 'warehouse_id', nullable: true })
-  warehouseId: string;
+  @Column()
+  movement_type: string;
 
-  @Column({ type: 'integer', nullable: true })
+  @Column('numeric', { precision: 10, scale: 2 })
   quantity: number;
 
-  @Column({ type: 'varchar', length: 50 })
-  movementType: string; // in, out, adjustment
+  @Column({ nullable: true })
+  reference: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  referenceId: string;
+  @Column()
+  created_by: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 }
