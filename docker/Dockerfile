@@ -1,45 +1,23 @@
-# Multi-stage build
-FROM node:18-alpine AS builder
+FROM node:18-alpine
 
 WORKDIR /app
 
+# Install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
+# Copy source code
 COPY . .
+
+# Build application
 RUN npm run build
 
-# Production image
-FROM node:18-alpine AS production
-
-WORKDIR /app
-
-RUN apk add --no-cache dumb-init
-
-ENV NODE_ENV=production
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY --from=builder /app/dist ./dist
-
+# Expose port
 EXPOSE 3000
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/apps/api/main.js"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Development image
-FROM node:18-alpine AS development
-
-WORKDIR /app
-
-RUN npm install -g @nestjs/cli
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-
-EXPOSE 3000
-
-CMD ["npm", "run", "start:dev"]
+# Start application
+CMD ["npm", "run", "start:prod"]

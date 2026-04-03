@@ -1,39 +1,48 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity('audit_logs')
-@Index(['tenantId', 'createdAt'])
-@Index(['userId'])
+@Index(['tenant_id', 'created_at'])
+@Index(['user_id'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column('uuid')
+  tenant_id: string;
 
-  @Column({ type: 'uuid', name: 'user_id', nullable: true })
-  userId: string;
+  @Column('uuid', { nullable: true })
+  user_id: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  entityType: string;
-
-  @Column({ type: 'varchar', length: 100 })
-  entityId: string;
-
-  @Column({ type: 'varchar', length: 50 })
+  @Column()
   action: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  oldValues: Record<string, any>;
+  @Column({ nullable: true })
+  module: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  newValues: Record<string, any>;
+  @Column({ nullable: true })
+  entity_type: string;
 
-  @Column({ type: 'varchar', length: 45, nullable: true })
-  ipAddress: string;
+  @Column('uuid', { nullable: true })
+  entity_id: string;
 
-  @Column({ type: 'text', nullable: true })
-  userAgent: string;
+  @Column('jsonb', { nullable: true })
+  old_values: Record<string, any>;
+
+  @Column('jsonb', { nullable: true })
+  new_values: Record<string, any>;
+
+  @Column({ nullable: true })
+  ip_address: string;
+
+  @Column({ nullable: true })
+  user_agent: string;
+
+  @Column({ default: 'success' })
+  status: string;
+
+  @Column({ nullable: true })
+  error_message: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  timestamp: Date;
 }
