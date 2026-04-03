@@ -1,12 +1,8 @@
 {
-  "$schema": "https://json.schemastore.org/nest-cli",
+  "language": "ts",
   "collection": "@nestjs/schematics",
   "sourceRoot": "apps/api/src",
-  "compilerOptions": {
-    "deleteOutDir": true,
-    "webpack": true,
-    "tsConfigPath": "apps/api/tsconfig.app.json"
-  },
+  "monorepo": true,
   "projects": {
     "api": {
       "type": "application",
@@ -24,51 +20,6 @@
       "sourceRoot": "apps/worker/src",
       "compilerOptions": {
         "tsConfigPath": "apps/worker/tsconfig.app.json"
-      }
-    },
-    "auth": {
-      "type": "library",
-      "root": "libs/auth",
-      "entryFile": "index",
-      "sourceRoot": "libs/auth/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/auth/tsconfig.lib.json"
-      }
-    },
-    "database": {
-      "type": "library",
-      "root": "libs/database",
-      "entryFile": "index",
-      "sourceRoot": "libs/database/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/database/tsconfig.lib.json"
-      }
-    },
-    "logger": {
-      "type": "library",
-      "root": "libs/logger",
-      "entryFile": "index",
-      "sourceRoot": "libs/logger/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/logger/tsconfig.lib.json"
-      }
-    },
-    "shared": {
-      "type": "library",
-      "root": "libs/shared",
-      "entryFile": "index",
-      "sourceRoot": "libs/shared/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/shared/tsconfig.lib.json"
-      }
-    },
-    "validation": {
-      "type": "library",
-      "root": "libs/validation",
-      "entryFile": "index",
-      "sourceRoot": "libs/validation/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/validation/tsconfig.lib.json"
       }
     }
   }

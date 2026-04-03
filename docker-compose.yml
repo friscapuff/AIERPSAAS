@@ -1,46 +1,25 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
-    container_name: aierp-app
-    ports:
-      - '3000:3000'
-    environment:
-      NODE_ENV: production
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      DB_DATABASE: aierp
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - aierp-network
-
   postgres:
     image: postgres:15-alpine
     container_name: aierp-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: aierp
-    ports:
-      - '5432:5432'
+      POSTGRES_USER: aierp
+      POSTGRES_PASSWORD: aierp_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - '5432:5432'
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U aierp']
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - aierp-network
+      - aierp
 
   redis:
     image: redis:7-alpine
@@ -55,11 +34,41 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - aierp-network
+      - aierp
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: aierp-api
+    ports:
+      - '3000:3000'
+      - '9229:9229'
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: aierp
+      DB_PASSWORD: aierp_password
+      DB_DATABASE: aierp
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: dev-secret-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - aierp
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  aierp-network:
+  aierp:
+    driver: bridge

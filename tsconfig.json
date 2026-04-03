@@ -22,12 +22,17 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
-      "@/*": ["src/*"],
-      "@modules/*": ["src/modules/*"],
-      "@common/*": ["src/common/*"],
-      "@config/*": ["src/config/*"]
+      "@api/*": ["apps/api/src/*"],
+      "@modules/*": ["apps/api/src/modules/*"],
+      "@common/*": ["apps/api/src/common/*"],
+      "@config/*": ["apps/api/src/config/*"],
+      "@database/*": ["libs/database/src/*"],
+      "@auth/*": ["libs/auth/src/*"],
+      "@logger/*": ["libs/logger/src/*"],
+      "@shared/*": ["libs/shared/src/*"],
+      "@validation/*": ["libs/validation/src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["apps/**/*", "libs/**/*"],
   "exclude": ["node_modules", "dist", "test"]
 }

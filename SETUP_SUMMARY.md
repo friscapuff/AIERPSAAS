@@ -1,303 +1,304 @@
-# AiERP Project Setup Summary
+# AiERP Setup & Deployment Summary
 
 ## Project Overview
 
-**Project Name:** AiERP SaaS Platform
-**Version:** 0.1.0
-**Type:** Multi-tenant Enterprise Resource Planning (ERP) System
-**Architecture:** Monorepo with NestJS backend and planned React frontend
-**Database:** PostgreSQL 15 with Row-Level Security
-**Cache:** Redis 7
-**Created:** April 3, 2026
+**AiERP** is a comprehensive, multi-tenant ERP SaaS platform built with modern technologies.
 
-## Directory Structure
+### Core Architecture
+- **Monorepo**: NestJS with multiple apps and libraries
+- **Backend**: API server + Background worker
+- **Database**: PostgreSQL with Row-Level Security (RLS)
+- **Cache**: Redis for sessions and caching
+- **Container**: Docker & Docker Compose
+
+## Tech Stack
+
+### Runtime & Framework
+- Node.js 18+
+- TypeScript 5.1
+- NestJS 10
+
+### Databases
+- PostgreSQL 15 (primary database)
+- Redis 7 (cache & sessions)
+
+### Key Libraries
+- TypeORM (database ORM)
+- Passport.js (authentication)
+- JWT (token-based auth)
+- Class Validator (DTO validation)
+- Swagger (API documentation)
+
+## Project Structure
 
 ```
-aierp/
+project/
 ├── apps/
-│   ├── api/              # Main NestJS application
+│   ├── api/                 # Main API server
 │   │   └── src/
-│   │       ├── modules/  # Feature modules
-│   │       ├── common/   # Shared utilities
-│   │       ├── config/   # Configuration
-│   │       ├── database/ # Database setup
-│   │       └── main.ts   # Entry point
-│   └── worker/           # Background job worker
+│   │       ├── common/      # Guards, filters, interceptors
+│   │       └── modules/     # Feature modules
+│   └── worker/              # Background job processor
 ├── libs/
-│   ├── auth/             # Authentication library
-│   ├── database/         # Database entities and config
-│   ├── logger/           # Logging library
-│   ├── shared/           # Shared utilities
-│   └── validation/       # Validation rules
-├── docker/               # Docker configuration
-├── .github/workflows/    # CI/CD pipelines
-└── package.json          # Root dependencies
+│   ├── database/            # Database entities & migrations
+│   ├── auth/                # Authentication library
+│   ├── logger/              # Logging utilities
+│   ├── shared/              # Shared utilities
+│   └── validation/          # Validation schemas
+├── docker/                  # Docker configurations
+└── test/                    # E2E tests
 ```
 
-## Technology Stack
+## Key Features Implemented
 
-### Backend
-- **Runtime:** Node.js 18+
-- **Framework:** NestJS 10
-- **Language:** TypeScript 5
-- **ORM:** TypeORM 0.3
-- **Authentication:** JWT + Passport.js
-- **Validation:** class-validator
-- **Documentation:** Swagger/OpenAPI
+### 1. Multi-Tenant Architecture
+- Tenant isolation via Row-Level Security (RLS)
+- Per-tenant data segregation
+- Tenant-aware service layer
+- Tenant configuration management
 
-### Database
-- **Primary:** PostgreSQL 15
-- **Cache:** Redis 7
-- **Features:** Row-Level Security, UUID, JSON support
+### 2. Authentication & Authorization
+- JWT-based token authentication
+- Refresh token rotation
+- Password hashing with bcrypt
+- OAuth2 integration ready
+- Role-Based Access Control (RBAC)
 
-### Development Tools
-- **Package Manager:** npm (workspace support)
-- **Testing:** Jest
-- **Linting:** ESLint
-- **Formatting:** Prettier
-- **CI/CD:** GitHub Actions
-- **Containerization:** Docker & Docker Compose
+### 3. Inventory Management
+- Product master data
+- Warehouse management
+- Stock tracking and movements
+- Reorder level automation
+- Stock valuation (FIFO, LIFO, Weighted Average)
 
-## Core Modules
+### 4. Financial Management
+- Chart of Accounts
+- GL Posting
+- Multi-currency support
+- Cost layer tracking
+- Financial reporting
 
-### 1. Authentication (auth)
-- User registration and login
-- JWT token management
-- Password hashing with bcryptjs
-- Passport.js strategies
-
-### 2. Multi-tenancy (tenants)
-- Tenant creation and management
-- Tenant context injection
-- Row-Level Security policies
-- Data isolation
-
-### 3. Financial Management (finance)
-- General Ledger (GL)
-- Chart of Accounts (COA)
-- Financial Periods
-- GL Transactions
-- Accounting Templates
-
-### 4. Dynamic Table Builder
-- Create custom tables without code
-- Flexible field types (10+ types)
-- Relationships (LOOKUP fields)
-- Full CRUD operations
-- Advanced querying
-
-### 5. Audit & Compliance (audit)
-- Audit trail for all changes
-- User attribution
+### 5. Audit & Compliance
+- Comprehensive audit logging
 - Change tracking
-- Timestamp monitoring
+- User activity monitoring
+- Compliance reporting
+- Data export capabilities
 
-### 6. Additional Modules
-- **Inventory:** Stock management
-- **Reporting:** Analytics and reports
-- **Webhooks:** Event-driven integrations
-- **Workflow:** Process automation
-- **Health:** System status monitoring
+### 6. Workflow Engine
+- Workflow definition and execution
+- Step-based processing
+- Conditional logic and branching
+- Event-driven architecture
+- Integration with inventory and finance modules
 
-## Database Entities
+### 7. Dynamic Table Builder
+- Create custom tables via API
+- Dynamic CRUD operations
+- Schema validation
+- Real-time table queries
+- Field type support (string, number, date, etc.)
 
-- **Tenant** - Company/organization
-- **User** - User accounts
-- **Role** - Access roles
-- **AuditLog** - Change log
-- **ChartOfAccounts** - GL structure
-- **FinancialPeriod** - Fiscal periods
-- **GLTransaction** - Journal entries
-- **AccountingTemplate** - GL templates
-- **InventoryLog** - Stock movements
-- **MetadataRegistry** - Table definitions
-- **DynamicData** - Custom records
-- **Webhook** - Event subscriptions
-- **Workflow** - Workflow definitions
+## Database Schema
 
-## API Documentation
+### Core Tables
+- `users` - User accounts
+- `roles` - Role definitions
+- `permissions` - Permission definitions
+- `tenants` - Tenant organizations
+- `tenant_settings` - Tenant configuration
 
-- **Swagger UI:** http://localhost:3000/api/docs
-- **OpenAPI JSON:** http://localhost:3000/api-json
-- **Health Check:** GET /health
+### Inventory Tables
+- `products` - Product master
+- `warehouses` - Warehouse locations
+- `stock` - Current stock levels
+- `stock_movements` - Stock transaction history
 
-## Environment Configuration
+### Finance Tables
+- `chart_of_accounts` - GL accounts
+- `journal_entries` - GL transactions
+- `cost_layers` - Inventory costing
 
-Key environment variables (see .env.example):
+### System Tables
+- `audit_logs` - Audit trail
+- `workflows` - Workflow definitions
+- `workflow_instances` - Workflow executions
+- `dynamic_tables` - Custom table definitions
 
-```
-NODE_ENV=development
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_DATABASE=aierp
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=15m
-
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-LOG_LEVEL=debug
-```
-
-## Getting Started
+## Installation & Setup
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-- Docker (optional)
+- Docker & Docker Compose
+- PostgreSQL 15
+- Redis 7
 
-### Installation
+### Quick Start
 
-1. Clone repository
+1. **Clone and install**
    ```bash
-   git clone https://github.com/mohWatheq/AIERPSAAS.git
-   cd aierp
-   ```
-
-2. Install dependencies
-   ```bash
+   git clone https://github.com/friscapuff/AIERPSAAS.git
+   cd AIERPSAAS
    npm install
    ```
 
-3. Configure environment
+2. **Configure environment**
    ```bash
    cp .env.example .env
+   # Edit .env with your settings
    ```
 
-4. Start services (Docker)
+3. **Start containers**
    ```bash
    docker-compose up -d
    ```
 
-5. Run migrations
+4. **Run migrations**
    ```bash
    npm run migration:run
    ```
 
-6. Start development server
+5. **Start development server**
    ```bash
    npm run start:dev
    ```
 
-   Server runs on http://localhost:3000
+6. **Access API**
+   - API: http://localhost:3000
+   - Swagger Docs: http://localhost:3000/api/docs
+   - Health Check: http://localhost:3000/health
 
-## Development Commands
+## API Endpoints
 
-```bash
-# Development
-npm run start:dev          # Watch mode
-npm run start:debug        # Debug mode
+### Authentication
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/register` - User registration
+- `POST /api/v1/auth/refresh` - Refresh token
+- `POST /api/v1/auth/logout` - User logout
 
-# Production
-npm run build              # Build
-npm run start:prod         # Start
+### Inventory
+- `GET/POST /api/v1/inventory/products` - Product management
+- `GET/POST /api/v1/inventory/warehouses` - Warehouse management
+- `GET/POST /api/v1/inventory/stock` - Stock operations
+- `POST /api/v1/inventory/stock/adjust` - Stock adjustment
+- `POST /api/v1/inventory/stock/transfer` - Stock transfer
 
-# Testing
-npm test                   # Run tests
-npm run test:watch         # Watch mode
-npm run test:cov           # Coverage
+### Finance
+- `GET/POST /api/v1/finance/accounts` - Chart of accounts
+- `GET/POST /api/v1/finance/entries` - Journal entries
+- `GET /api/v1/finance/reports` - Financial reports
 
-# Code Quality
-npm run lint               # Lint
-npm run lint:fix           # Fix linting
-npm run format             # Format code
+### Audit
+- `GET /api/v1/audit/logs` - Audit logs
+- `GET /api/v1/audit/user-activity` - User activity
+- `GET /api/v1/audit/reports` - Audit reports
 
-# Database
-npm run migration:create   # Create migration
-npm run migration:run      # Run migrations
-npm run migration:revert   # Revert migration
-```
+### Workflow
+- `GET/POST /api/v1/workflow/definitions` - Workflow management
+- `POST /api/v1/workflow/execute` - Execute workflow
+- `GET /api/v1/workflow/instances` - Workflow instances
 
-## Features Implemented
-
-### Phase 0: Build Hardening
-- [x] TypeScript strict mode
-- [x] Exception handling
-- [x] Logging framework
-- [x] CORS configuration
-- [x] Validation pipes
-
-### Phase 1A: Financial Engine
-- [x] GL Transaction management
-- [x] Chart of Accounts
-- [x] Financial Periods
-- [x] Accounting Templates
-- [x] Multi-currency support (flag)
-
-### Phase 1B: Dynamic Builder
-- [x] Custom table creation
-- [x] 10+ field types
-- [x] Flexible validation
-- [x] CRUD operations
-- [x] Advanced querying
-
-## Security Considerations
-
-- JWT-based authentication
-- Role-based access control (RBAC)
-- Row-Level Security in PostgreSQL
-- Password hashing (bcryptjs)
-- Audit logging
-- CORS restrictions
-- Input validation
-
-## Performance Optimizations
-
-- Redis caching layer
-- Database query optimization
-- Connection pooling
-- Pagination support
-- Indexed fields
-
-## Testing Strategy
-
-- Unit tests for services
-- Integration tests for modules
-- E2E tests for workflows
-- Code coverage tracking
+### Dynamic Tables
+- `GET/POST /api/v1/dynamic-tables` - Table management
+- `GET/POST /api/v1/dynamic/:tableName` - CRUD operations
 
 ## Deployment
 
-### Local Development
-- Docker Compose for PostgreSQL and Redis
-- Hot reload with watch mode
-- Debug mode support
+### Docker Deployment
 
-### CI/CD
-- GitHub Actions workflows
-- Automated testing
-- Build verification
-- Code quality checks
+1. **Build image**
+   ```bash
+   docker build -t aierp:latest .
+   ```
+
+2. **Run container**
+   ```bash
+   docker run -p 3000:3000 --env-file .env aierp:latest
+   ```
+
+### Kubernetes Deployment
+
+Kubernetes manifests available in `k8s/` directory for scalable cloud deployments.
+
+## Testing
+
+```bash
+# Unit tests
+npm test
+
+# Test coverage
+npm run test:cov
+
+# E2E tests
+npm run test:e2e
+
+# Watch mode
+npm run test:watch
+```
+
+## Development Workflows
+
+### Adding a New Feature
+1. Create module in `apps/api/src/modules/`
+2. Define entities in `libs/database/src/entities/`
+3. Create migrations if needed
+4. Implement services and controllers
+5. Add DTOs and validation
+6. Create tests
+7. Document in Swagger
+
+### Database Migrations
+```bash
+# Generate migration
+npm run typeorm migration:generate -- src/database/migrations/MyMigration
+
+# Run migrations
+npm run typeorm migration:run
+
+# Revert migration
+npm run typeorm migration:revert
+```
+
+## Performance Optimization
+
+- Database connection pooling
+- Redis caching for frequent queries
+- Query optimization and indexing
+- Pagination for large result sets
+- Lazy loading of relationships
+
+## Security Features
+
+- JWT token-based authentication
+- Password hashing with bcrypt
+- Row-Level Security (RLS) for multi-tenancy
+- Input validation and sanitization
+- CORS configuration
+- Rate limiting ready
+- SQL injection prevention (TypeORM)
+
+## Monitoring & Logging
+
+- Structured JSON logging
+- Request/response logging
+- Error tracking integration ready
+- Health check endpoint
+- Metrics collection ready
+
+## Support & Documentation
+
+- Full Swagger API documentation
+- Implementation guides
+- Architecture documentation
+- Database schema documentation
+- Integration examples
 
 ## Next Steps
 
-1. **Frontend Development** - React application
-2. **Comprehensive Testing** - Unit, integration, E2E
-3. **Performance Testing** - Load and stress tests
-4. **Security Audit** - Penetration testing
-5. **Production Deployment** - Cloud infrastructure
-6. **Documentation** - User and admin guides
-
-## Support & Resources
-
-- **API Documentation:** See DYNAMIC_TABLE_API_REFERENCE.md
-- **Implementation Guide:** See DYNAMIC_TABLE_BUILDER_IMPLEMENTATION.md
-- **Integration Checklist:** See INTEGRATION_CHECKLIST.md
-- **Database Config:** See TYPEORM_CONFIG.md
-
-## Project Status
-
-**Phase:** Core Backend Implementation Complete
-**Status:** Ready for Testing & Frontend Development
-**Lines of Code:** ~50,000+
-**Files:** 109
-**Modules:** 11 functional modules
-
----
-
-*Last Updated: April 3, 2026*
+1. Customize environment configuration
+2. Configure tenant data
+3. Set up user roles and permissions
+4. Configure workflow definitions
+5. Deploy to production environment
+6. Set up monitoring and alerts
+7. Configure backup and disaster recovery
