@@ -37,9 +37,7 @@ export class RolesGuard implements CanActivate {
     const hasRequiredRole = this.matchRoles(user.roles, requiredRoles);
 
     if (!hasRequiredRole) {
-      this.logger.warn(
-        `Access denied for user ${user.id} attempting to access module with roles: ${user.roles.join(', ')}`,
-      );
+      this.logger.warn(`Access denied for user ${user.id}`);
       throw new ForbiddenException('Insufficient permissions to access this resource');
     }
 
@@ -48,7 +46,6 @@ export class RolesGuard implements CanActivate {
 
   private matchRoles(userRoles: string[], requiredRoles: RolePermission[]): boolean {
     return requiredRoles.some((requiredRole) => {
-      // Check if user has the required module role
       const hasModuleRole = userRoles.some(
         (role) =>
           role === requiredRole.module ||
@@ -61,7 +58,6 @@ export class RolesGuard implements CanActivate {
         return false;
       }
 
-      // If specific actions are required, check them
       if (requiredRole.actions && requiredRole.actions.length > 0) {
         return requiredRole.actions.every(
           (action) =>

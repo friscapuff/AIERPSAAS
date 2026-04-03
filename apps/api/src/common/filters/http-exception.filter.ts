@@ -29,7 +29,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = responseObject.message || exception.message;
       details = responseObject.error || null;
 
-      // Handle validation errors
       if (exception instanceof BadRequestException && Array.isArray(message)) {
         const errors = message as any[];
         details = {
@@ -52,24 +51,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ...(details && { details }),
     };
 
-    // Log errors
     if (status >= 500) {
-      this.logger.error(
-        `HTTP Error ${status}: ${message}`,
-        exception.stack,
-        {
-          path: request.url,
-          method: request.method,
-        },
-      );
+      this.logger.error(`HTTP Error ${status}: ${message}`, exception.stack);
     } else {
-      this.logger.warn(
-        `HTTP Error ${status}: ${message}`,
-        {
-          path: request.url,
-          method: request.method,
-        },
-      );
+      this.logger.warn(`HTTP Error ${status}: ${message}`);
     }
 
     response.status(status).json(errorResponse);
