@@ -1,32 +1,33 @@
-import { Controller, Get, Post, Body, UseGuards, Logger, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('Inventory')
-@Controller('inventory')
+@Controller('api/v1/inventory')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('bearer')
 export class InventoryController {
-  private readonly logger = new Logger(InventoryController.name);
-
   constructor(private readonly inventoryService: InventoryService) {}
 
-  @Post('movements')
-  async logMovement(
-    @CurrentUser() user: any,
-    @Body() dto: any,
-  ) {
-    return this.inventoryService.logMovement(user.tenant_id, user.id, dto);
+  @Get('products')
+  getProducts(@CurrentTenant() tenantId: string) {
+    return this.inventoryService.getProducts(tenantId);
   }
 
-  @Get('movements')
-  async getMovements(
-    @CurrentUser() user: any,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
-    return this.inventoryService.getMovements(user.tenant_id, page, limit);
+  @Post('products')
+  createProduct(@Body() data: any, @CurrentTenant() tenantId: string) {
+    return this.inventoryService.createProduct(tenantId, data);
+  }
+
+  @Get('warehouses')
+  getWarehouses(@CurrentTenant() tenantId: string) {
+    return this.inventoryService.getWarehouses(tenantId);
+  }
+
+  @Post('stock/adjust')
+  adjustStock(@Body() data: any, @CurrentTenant() tenantId: string) {
+    return this.inventoryService.adjustStock(tenantId, data);
   }
 }
