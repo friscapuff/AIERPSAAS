@@ -1,155 +1,91 @@
-# Dynamic Table Builder API Reference
+# Dynamic Table API Reference
 
-## Quick Start
+## Overview
 
-### 1. Create a Custom Table
+The Dynamic Table API enables CRUD operations on tenant-specific tables through a unified RESTful interface.
 
-```bash
-POST /dynamic/tables
-Authorization: Bearer {token}
+## Endpoints
 
+### Create Record
+
+```
+POST /api/v1/dynamic-tables/:tableName
+```
+
+**Request Body:**
+```json
 {
-  "tableName": "products",
-  "displayName": "Products",
-  "description": "Product catalog",
-  "fields": [
-    {
-      "name": "sku",
-      "type": "STRING",
-      "required": true,
-      "maxLength": 50
-    },
-    {
-      "name": "name",
-      "type": "STRING",
-      "required": true,
-      "maxLength": 255
-    },
-    {
-      "name": "price",
-      "type": "DECIMAL",
-      "required": true,
-      "precision": 10,
-      "scale": 2
-    },
-    {
-      "name": "quantity",
-      "type": "INTEGER",
-      "required": true
-    },
-    {
-      "name": "description",
-      "type": "TEXT"
-    },
-    {
-      "name": "category_id",
-      "type": "LOOKUP",
-      "lookupTable": "categories",
-      "lookupField": "id",
-      "displayField": "name"
-    }
-  ]
+  "field1": "value1",
+  "field2": "value2"
 }
 ```
 
-**Response (201):**
+**Response:**
 ```json
 {
   "id": "uuid",
-  "tenant_id": "uuid",
-  "table_name": "products",
-  "display_name": "Products",
-  "description": "Product catalog",
-  "fields": [...],
-  "created_by": "uuid",
-  "created_at": "2026-04-03T10:00:00Z",
-  "updated_at": "2026-04-03T10:00:00Z"
+  "createdAt": "2024-01-01T00:00:00Z",
+  "updatedAt": "2024-01-01T00:00:00Z",
+  "field1": "value1",
+  "field2": "value2"
 }
 ```
 
-### 2. Insert a Record
+### Read Records
 
-```bash
-POST /dynamic/tables/products/records
-Authorization: Bearer {token}
+```
+GET /api/v1/dynamic-tables/:tableName
+```
 
+**Query Parameters:**
+- `page`: Page number (default: 1)
+- `limit`: Records per page (default: 20)
+- `search`: Search across text fields
+- `sort`: Sort field and direction (e.g., `createdAt:desc`)
+- `filter`: JSON filter object
+
+### Read Single Record
+
+```
+GET /api/v1/dynamic-tables/:tableName/:id
+```
+
+### Update Record
+
+```
+PATCH /api/v1/dynamic-tables/:tableName/:id
+```
+
+### Delete Record
+
+```
+DELETE /api/v1/dynamic-tables/:tableName/:id
+```
+
+## Filtering
+
+Filters support standard operators:
+
+```json
 {
-  "data": {
-    "sku": "PROD-001",
-    "name": "Widget A",
-    "price": 29.99,
-    "quantity": 100,
-    "description": "High-quality widget",
-    "category_id": "category-uuid-here"
+  "field": {
+    "$eq": "value",
+    "$ne": "value",
+    "$gt": "value",
+    "$lt": "value",
+    "$gte": "value",
+    "$lte": "value",
+    "$in": ["value1", "value2"],
+    "$nin": ["value1", "value2"],
+    "$contains": "substring"
   }
 }
 ```
 
-**Response (201):**
-```json
-{
-  "id": "record-uuid",
-  "tenant_id": "uuid",
-  "table_name": "products",
-  "data": {
-    "sku": "PROD-001",
-    "name": "Widget A",
-    "price": 29.99,
-    "quantity": 100,
-    "description": "High-quality widget",
-    "category_id": "category-uuid-here"
-  },
-  "created_at": "2026-04-03T10:05:00Z",
-  "created_by": "user-uuid"
-}
+## Authentication
+
+All requests require a valid JWT token in the Authorization header:
+
 ```
-
-### 3. Query Records
-
-```bash
-GET /dynamic/tables/products/records?page=1&limit=10&sort=-created_at
-Authorization: Bearer {token}
-```
-
-**Response (200):**
-```json
-{
-  "data": [...],
-  "total": 50,
-  "page": 1,
-  "limit": 10,
-  "pages": 5
-}
-```
-
-## Field Types
-
-- `STRING`: Text up to specified maxLength
-- `INTEGER`: Whole numbers
-- `DECIMAL`: Decimal numbers with precision/scale
-- `BOOLEAN`: True/false
-- `DATE`: ISO date format
-- `DATETIME`: ISO datetime format
-- `TEXT`: Long text content
-- `JSON`: JSON object/array
-- `LOOKUP`: Foreign key reference
-- `COMPUTED`: Formula-based field (read-only)
-
-## Error Handling
-
-All errors follow standard HTTP status codes:
-- 400: Bad Request
-- 401: Unauthorized
-- 403: Forbidden
-- 404: Not Found
-- 422: Unprocessable Entity (validation)
-- 500: Server Error
-
-Error response format:
-```json
-{
-  "statusCode": 400,
-  "message": "Error description",
-  "error": "Bad Request"
-}
+Authorization: Bearer <token>
 ```

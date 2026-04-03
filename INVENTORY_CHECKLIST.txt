@@ -1,0 +1,219 @@
+AIERP INVENTORY MODULE IMPLEMENTATION CHECKLIST
+
+=== CORE ENTITIES ===
+[x] Product Entity
+    - id (UUID, primary key)
+    - tenant_id (UUID, for multi-tenancy)
+    - sku (string, unique per tenant)
+    - name (string)
+    - description (text)
+    - category (string)
+    - unit_of_measure (string)
+    - unit_cost (decimal)
+    - selling_price (decimal)
+    - reorder_level (integer)
+    - lead_time_days (integer)
+    - is_active (boolean)
+    - created_at (timestamp)
+    - updated_at (timestamp)
+    - created_by (UUID, user reference)
+    - updated_by (UUID, user reference)
+
+[x] Warehouse Entity
+    - id (UUID, primary key)
+    - tenant_id (UUID)
+    - name (string)
+    - location (string)
+    - capacity (integer)
+    - is_active (boolean)
+    - created_at (timestamp)
+    - updated_at (timestamp)
+
+[x] Stock Entity
+    - id (UUID, primary key)
+    - tenant_id (UUID)
+    - product_id (UUID, foreign key)
+    - warehouse_id (UUID, foreign key)
+    - quantity_on_hand (integer)
+    - quantity_reserved (integer)
+    - quantity_available (integer, calculated)
+    - last_count_date (timestamp)
+    - created_at (timestamp)
+    - updated_at (timestamp)
+
+[x] StockMovement Entity
+    - id (UUID, primary key)
+    - tenant_id (UUID)
+    - product_id (UUID)
+    - warehouse_id (UUID)
+    - movement_type (enum: IN, OUT, ADJUSTMENT, TRANSFER)
+    - quantity (integer)
+    - reference_type (string, e.g., PO, SO, RMA)
+    - reference_id (string)
+    - notes (text)
+    - created_by (UUID)
+    - created_at (timestamp)
+
+=== REPOSITORY LAYER ===
+[x] ProductRepository
+    - findBySkuAndTenant
+    - findActiveBySku
+    - findLowStockProducts
+    - findByCategoryAndTenant
+
+[x] WarehouseRepository
+    - findByTenant
+    - findById
+    - findActiveWarehouses
+
+[x] StockRepository
+    - findByProductAndWarehouse
+    - findProductStock (all warehouses)
+    - findLowStock
+    - updateQuantity
+    - findByWarehouse
+
+[x] StockMovementRepository
+    - findByProductAndDateRange
+    - findByWarehouseAndDateRange
+    - findByReferenceId
+    - getMovementHistory
+
+=== SERVICE LAYER ===
+[x] InventoryService
+    - createProduct()
+    - updateProduct()
+    - deleteProduct()
+    - getProduct()
+    - listProducts()
+    - searchProducts()
+    - getProductStock() - returns total across warehouses
+    - checkProductAvailability()
+
+[x] WarehouseService
+    - createWarehouse()
+    - updateWarehouse()
+    - deleteWarehouse()
+    - listWarehouses()
+    - getWarehouseCapacity()
+    - checkWarehouseAvailability()
+
+[x] StockService
+    - getStockLevel()
+    - updateStock() - handles movements
+    - adjustStock() - inventory adjustments
+    - transferStock() - between warehouses
+    - reserveStock()
+    - releaseReservedStock()
+    - recordMovement()
+    - getMovementHistory()
+    - calculateAvailableQuantity()
+    - getStockValuation() - cost-based
+    - identifyLowStockItems()
+    - generateStockReport()
+
+=== CONTROLLER ENDPOINTS ===
+[x] ProductController
+    - POST /api/v1/inventory/products
+    - GET /api/v1/inventory/products
+    - GET /api/v1/inventory/products/:id
+    - PATCH /api/v1/inventory/products/:id
+    - DELETE /api/v1/inventory/products/:id
+    - GET /api/v1/inventory/products/search
+
+[x] WarehouseController
+    - POST /api/v1/inventory/warehouses
+    - GET /api/v1/inventory/warehouses
+    - GET /api/v1/inventory/warehouses/:id
+    - PATCH /api/v1/inventory/warehouses/:id
+    - DELETE /api/v1/inventory/warehouses/:id
+
+[x] StockController
+    - GET /api/v1/inventory/stock/:productId
+    - GET /api/v1/inventory/stock/:productId/warehouse/:warehouseId
+    - POST /api/v1/inventory/stock/adjust
+    - POST /api/v1/inventory/stock/transfer
+    - POST /api/v1/inventory/stock/reserve
+    - POST /api/v1/inventory/stock/release-reserve
+    - GET /api/v1/inventory/stock/history/:productId
+    - GET /api/v1/inventory/stock/low-stock
+    - GET /api/v1/inventory/stock/valuation
+    - GET /api/v1/inventory/stock/report
+
+=== DTO LAYER ===
+[x] CreateProductDto
+    - sku, name, description, category, unit_of_measure
+    - unit_cost, selling_price
+    - reorder_level, lead_time_days
+
+[x] UpdateProductDto
+    - All product fields optional
+
+[x] CreateWarehouseDto
+    - name, location, capacity
+
+[x] StockAdjustmentDto
+    - product_id, warehouse_id, quantity, adjustment_type
+    - reason, notes
+
+[x] StockTransferDto
+    - product_id, source_warehouse_id, destination_warehouse_id
+    - quantity, reference_id
+
+[x] StockReservationDto
+    - product_id, warehouse_id, quantity, reference_id, reference_type
+
+=== VALIDATION ===
+[x] Product validation
+    - SKU uniqueness per tenant
+    - Positive prices
+    - Valid unit of measure
+    - Positive reorder level
+
+[x] Stock validation
+    - Quantity >= 0
+    - Available >= Reserved
+    - Warehouse capacity checks
+
+[x] Movement validation
+    - Sufficient stock for OUT movements
+    - Valid movement types
+    - Reference traceability
+
+=== ERROR HANDLING ===
+[x] ProductNotFoundException
+[x] WarehouseNotFoundException
+[x] InsufficientStockException
+[x] InvalidStockMovementException
+[x] DuplicateProductSkuException
+[x] WarehouseCapacityExceededException
+
+=== AUDIT & LOGGING ===
+[x] Stock movements logged
+[x] User tracking (created_by, updated_by)
+[x] Timestamp tracking
+[x] Audit trail for all changes
+[x] Change reason tracking
+
+=== TESTING ===
+[x] Unit tests for services
+[x] Integration tests for repositories
+[x] E2E tests for endpoints
+[x] Edge case testing
+[x] Concurrent transaction testing
+
+=== PERFORMANCE ===
+[x] Database indexes on:
+    - tenant_id + product_id
+    - tenant_id + warehouse_id
+    - product_id + warehouse_id
+    - created_at (for date range queries)
+[x] Query optimization
+[x] N+1 query prevention
+
+=== DOCUMENTATION ===
+[x] API endpoint documentation
+[x] Entity relationship diagram
+[x] Service flow documentation
+[x] Error code reference
+[x] Integration examples

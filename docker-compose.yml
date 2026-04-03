@@ -1,6 +1,28 @@
 version: '3.8'
 
 services:
+  app:
+    build: .
+    container_name: aierp-app
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: aierp
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aierp-network
+
   postgres:
     image: postgres:15-alpine
     container_name: aierp-postgres
@@ -17,6 +39,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - aierp-network
 
   redis:
     image: redis:7-alpine
@@ -30,11 +54,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - aierp-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  default:
-    name: aierp-network
+  aierp-network:

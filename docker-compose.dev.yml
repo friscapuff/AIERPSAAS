@@ -1,21 +1,71 @@
-version: '3.9'
+version: '3.8'
+
 services:
-  postgres:
-    restart: always
-    environment:
-      POSTGRES_INITDB_ARGS: "-c search_path=aierp,public -c log_statement=all"
-    command:
-      - "postgres"
-      - "-c"
-      - "log_statement=all"
-      - "-c"
-      - "log_duration=on"
-  api:
-    restart: always
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: aierp-app-dev
+    ports:
+      - '3000:3000'
+      - '9229:9229' # Node debug port
     environment:
       NODE_ENV: development
-      LOG_LEVEL: debug
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: aierp
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aierp-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: aierp-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aierp
     ports:
-      - "3000:3000"
-      - "9229:9229"
-    command: npm run start:dev
+      - '5432:5432'
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aierp-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: aierp-redis-dev
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aierp-network
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+
+networks:
+  aierp-network:

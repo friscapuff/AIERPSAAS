@@ -1,85 +1,111 @@
-# Dynamic Table Builder - Implementation Guide
+# Dynamic Table Builder Implementation
 
 ## Overview
 
-The Dynamic Table Builder allows users to create custom tables with flexible field types, validation, and relationships without code.
+The Dynamic Table Builder enables users to create and manage custom tables for their tenant without code changes.
 
-## Architecture
+## Core Concepts
 
-### Controller Layer
-`apps/api/src/modules/dynamic-builder/dynamic-builder.controller.ts`
-
-- Handles HTTP requests for table and record operations
-- Validates incoming DTOs
-- Returns formatted responses
-
-### Service Layer
-`apps/api/src/modules/dynamic-builder/dynamic-builder.service.ts`
-
-- Business logic for table CRUD operations
-- Record creation, update, delete, query
-- Dynamic schema generation
-- Relationship handling
-
-### Database Integration
-
-- Uses TypeORM for database operations
-- Creates tables dynamically in PostgreSQL
-- Maintains metadata in `metadata_registry` table
-
-## Supported Field Types
+### Table Definition
 
 ```typescript
-enum FieldType {
-  STRING = 'STRING',
-  INTEGER = 'INTEGER',
-  DECIMAL = 'DECIMAL',
-  BOOLEAN = 'BOOLEAN',
-  DATE = 'DATE',
-  DATETIME = 'DATETIME',
-  TEXT = 'TEXT',
-  JSON = 'JSON',
-  LOOKUP = 'LOOKUP',      // Foreign key
-  COMPUTED = 'COMPUTED',  // Formula-based
+interface TableDefinition {
+  id: string;
+  tenantId: string;
+  name: string;
+  displayName: string;
+  description: string;
+  columns: ColumnDefinition[];
+  primaryKey: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ColumnDefinition {
+  id: string;
+  name: string;
+  displayName: string;
+  dataType: 'string' | 'number' | 'boolean' | 'date' | 'timestamp' | 'json';
+  isRequired: boolean;
+  isUnique: boolean;
+  isIndexed: boolean;
+  defaultValue?: any;
+  validation?: ValidationRule[];
 }
 ```
 
-## Multi-tenancy
-
-All dynamic tables are tenant-aware:
-- Tenant ID is automatically included in all queries
-- Uses PostgreSQL Row-Level Security (RLS)
-- Each tenant's data is logically separated
-
 ## API Endpoints
 
-### Tables
-- `POST /dynamic/tables` - Create table
-- `GET /dynamic/tables` - List tables
-- `GET /dynamic/tables/:id` - Get table details
-- `PATCH /dynamic/tables/:id` - Update table
-- `DELETE /dynamic/tables/:id` - Delete table
+### Create Table
 
-### Records
-- `POST /dynamic/tables/:tableName/records` - Create record
-- `GET /dynamic/tables/:tableName/records` - Query records
-- `GET /dynamic/tables/:tableName/records/:id` - Get record
-- `PATCH /dynamic/tables/:tableName/records/:id` - Update record
-- `DELETE /dynamic/tables/:tableName/records/:id` - Delete record
+```
+POST /api/v1/table-builder/tables
+```
 
-## Data Validation
+Request:
+```json
+{
+  "name": "customers",
+  "displayName": "Customers",
+  "description": "Customer database",
+  "columns": [
+    {
+      "name": "email",
+      "displayName": "Email",
+      "dataType": "string",
+      "isRequired": true,
+      "isUnique": true
+    }
+  ]
+}
+```
 
-Validation occurs at multiple levels:
+### List Tables
 
-1. **DTO Validation**: Using class-validator
-2. **Type Checking**: Field types are enforced
-3. **Required Fields**: Checked before insert/update
-4. **Relationships**: Lookup fields validated against target tables
-5. **Custom Rules**: Support for regex patterns, min/max values
+```
+GET /api/v1/table-builder/tables
+```
 
-## Performance Considerations
+### Update Table
 
-- Metadata caching for frequently accessed table definitions
-- Indexed lookups on common query fields
-- Pagination support for large record sets
-- Batch operations for bulk inserts
+```
+PATCH /api/v1/table-builder/tables/:tableId
+```
+
+### Delete Table
+
+```
+DELETE /api/v1/table-builder/tables/:tableId
+```
+
+## Implementation Details
+
+### Schema Migration
+
+When a table is created:
+
+1. Table definition is stored in the `table_definitions` table
+2. PostgreSQL migration is generated
+3. Migration is executed to create the actual table
+4. Indexes are created for indexed columns
+5. Constraints are applied
+
+### Tenant Isolation
+
+Each table includes:
+- `tenant_id` column for data isolation
+- Row-Level Security (RLS) policy restricting access to tenant's data
+- Audit triggers for tracking changes
+
+## Data Type Mapping
+
+| Data Type | PostgreSQL Type | TypeScript Type |
+|-----------|-----------------|---------------|
+| string | VARCHAR(255) | string |
+| number | NUMERIC | number |
+| boolean | BOOLEAN | boolean |
+| date | DATE | Date |
+| timestamp | TIMESTAMP | Date |
+| json | JSONB | Record<string, any> |
+
