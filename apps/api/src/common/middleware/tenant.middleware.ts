@@ -6,19 +6,13 @@ export class TenantMiddleware implements NestMiddleware {
   private readonly logger = new Logger(TenantMiddleware.name);
 
   use(req: Request, res: Response, next: NextFunction) {
-    // Extract tenant from multiple sources
-    let tenantId =
-      req.headers['x-tenant-id'] ||
-      req.user?.['tenant_id'] ||
-      req.body?.tenant_id;
+    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId || req.user?.tenantId;
 
     if (!tenantId) {
-      this.logger.warn(`No tenant ID found for request: ${req.path}`);
+      this.logger.warn('No tenant ID provided in request');
     }
 
-    // Set tenant context
-    req['tenantId'] = tenantId;
-
+    (req as any).tenantId = tenantId;
     next();
   }
 }
