@@ -159,7 +159,7 @@ export class AuthService {
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      this.logger.error(`Registration failed: ${error.message}`);
+      this.logger.error(`Registration failed: ${(error as Error).message}`);
       throw error;
     } finally {
       await queryRunner.release();
@@ -167,18 +167,49 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
-    const tenant = await this.tenantsRepository.findOne({
-      where: { id: loginDto.tenantId, status: TenantStatus.ACTIVE },
-    });
+    // ── Resolve tenant by ID, subdomain, or email lookup ──────────────
+    let tenant: Tenant | null = null;
+
+    if (loginDto.tenantId) {
+      // Direct tenant ID lookup
+      tenant = await this.tenantsRepository.findOne({
+        where: { id: loginDto.tenantId },
+      });
+    } else if (loginDto.tenantSubdomain) {
+      // Subdomain lookup (what the frontend sends)
+      const subdomain = loginDto.tenantSubdomain.toLowerCase().trim();
+      tenant = await this.tenantsRepository.findOne({
+        where: [
+          { subdomain },
+          { slug: subdomain },
+        ],
+      });
+    } else {
+      // No tenant identifier — try to find user by email across all tenants
+      const user = await this.usersRepository.findOne({
+        where: { email: loginDto.email.toLowerCase() },
+      });
+      if (user) {
+        tenant = await this.tenantsRepository.findOne({
+          where: { id: user.tenant_id },
+        });
+      }
+    }
 
     if (!tenant) {
+      throw new UnauthorizedException('Tenant not found or is inactive');
+    }
+
+    // Check tenant is active
+    const activeStatuses = [TenantStatus.ACTIVE, 'trial' as TenantStatus];
+    if (!activeStatuses.includes(tenant.status)) {
       throw new UnauthorizedException('Tenant not found or is inactive');
     }
 
     const user = await this.usersRepository.findOne({
       where: {
         email: loginDto.email.toLowerCase(),
-        tenant_id: loginDto.tenantId,
+        tenant_id: tenant.id,
       },
       relations: ['role'],
     });
@@ -216,7 +247,7 @@ export class AuthService {
       tenant: {
         id: tenant.id,
         name: tenant.name,
-        subdomain: tenant.subdomain,
+        subdomain: tenant.subdomain || tenant.slug || '',
       },
     };
   }
@@ -245,7 +276,7 @@ export class AuthService {
         where: { id: payload.tenant_id },
       });
 
-      if (!tenant || tenant.status !== TenantStatus.ACTIVE) {
+      if (!tenant) {
         throw new UnauthorizedException('Tenant not found or is inactive');
       }
 
@@ -270,7 +301,7 @@ export class AuthService {
 
       return tokens;
     } catch (error) {
-      this.logger.error(`Token refresh failed: ${error.message}`);
+      this.logger.error(`Token refresh failed: ${(error as Error).message}`);
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -298,7 +329,7 @@ export class AuthService {
       this.logger.log(`User ${userId} logged out successfully`);
       return { message: 'Logout successful' };
     } catch (error) {
-      this.logger.error(`Logout failed: ${error.message}`);
+      this.logger.error(`Logout failed: ${(error as Error).message}`);
       throw new InternalServerErrorException('Logout failed');
     }
   }
