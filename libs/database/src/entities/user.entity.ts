@@ -1,6 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Tenant } from './tenant.entity';
+import { Role } from './role.entity';
 
 @Entity('users')
+@Index(['tenant_id', 'email'], { unique: true })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -8,7 +11,11 @@ export class User {
   @Column('uuid')
   tenant_id: string;
 
-  @Column('varchar', { unique: true })
+  @ManyToOne(() => Tenant, { eager: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
+  @Column('varchar')
   email: string;
 
   @Column('varchar')
@@ -19,6 +26,13 @@ export class User {
 
   @Column('varchar')
   last_name: string;
+
+  @Column('uuid', { nullable: true })
+  role_id: string;
+
+  @ManyToOne(() => Role, { eager: false, nullable: true })
+  @JoinColumn({ name: 'role_id' })
+  role: Role;
 
   @Column('boolean', { default: true })
   is_active: boolean;
