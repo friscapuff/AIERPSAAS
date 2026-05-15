@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import { appConfig } from './config/app.config';
 import { CommonModule } from './common/common.module';
@@ -27,7 +27,13 @@ import { IntercompanyModule } from './modules/intercompany/intercompany.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: databaseConfig,
+      useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
+        const dbConfig = configService.get('database');
+        return {
+          ...dbConfig,
+          autoLoadEntities: true,
+        } as TypeOrmModuleOptions;
+      },
     }),
     CommonModule,
     HealthModule,
