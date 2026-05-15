@@ -1,30 +1,12 @@
-import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Headers } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-
-export class RegisterDto {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
-
-export class LoginDto {
-  email: string;
-  password: string;
-}
-
-export class RefreshTokenDto {
-  refreshToken: string;
-}
-
-export class LogoutDto {
-  // Placeholder for logout payload
-}
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -51,10 +33,9 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
