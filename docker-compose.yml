@@ -1,74 +1,133 @@
-version: '3.8'
+version: '3.9'
 
 services:
+  # PostgreSQL Database Service
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: aierp-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: aierp
-      POSTGRES_USER: aierp
-      POSTGRES_PASSWORD: aierp_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      POSTGRES_DB: ${DB_NAME:-aierp}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "-c search_path=aierp,public"
     ports:
-      - '5432:5432'
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U aierp']
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - aierp
+      - aierp-network
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "max_connections=200"
 
+  # Redis Cache Service
   redis:
     image: redis:7-alpine
     container_name: aierp-redis
+    restart: unless-stopped
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - aierp
+      - aierp-network
+    command: redis-server /usr/local/etc/redis/redis.conf
 
+  # NestJS API Service
   api:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: docker/Dockerfile
     container_name: aierp-api
-    ports:
-      - '3000:3000'
-      - '9229:9229'
-    environment:
-      NODE_ENV: development
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: aierp
-      DB_PASSWORD: aierp_password
-      DB_DATABASE: aierp
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: dev-secret-key-change-in-production
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/node_modules
-    networks:
-      - aierp
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
 
-volumes:
-  postgres_data:
-  redis_data:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-aierp}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+
+      # API Configuration
+      API_PORT: 3000
+      API_HOST: 0.0.0.0
+
+      # JWT and Security
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+
+      # Additional variables from .env file
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./dist:/app/dist
+      - ./node_modules:/app/node_modules
+    networks:
+      - aierp-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PgAdmin - PostgreSQL Administration Tool (Optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: aierp-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - aierp-network
+    depends_on:
+      - postgres
 
 networks:
-  aierp:
+  aierp-network:
     driver: bridge
+
+volumes:
+  pg-data:
+    driver: local
+  redis-data:
+    driver: local
+  pgadmin-data:
+    driver: local
