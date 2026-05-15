@@ -1,9 +1,25 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "../../dist/apps/worker"
+    "outDir": "../../dist/apps/worker",
+    "baseUrl": "../../",
+    "paths": {
+      "@app/*": ["apps/api/src/*"],
+      "@app/modules/*": ["apps/api/src/modules/*"],
+      "@app/common/*": ["apps/api/src/common/*"],
+      "@libs/shared/*": ["libs/shared/src/*"],
+      "@libs/database/*": ["libs/database/src/*"],
+      "@libs/logger/*": ["libs/logger/src/*"],
+      "@libs/auth/*": ["libs/auth/src/*"],
+      "@libs/validation/*": ["libs/validation/src/*"]
+    }
   },
   "include": [
     "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts"
   ]
 }

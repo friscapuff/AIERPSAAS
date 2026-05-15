@@ -2,14 +2,14 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/libs/auth",
-    "declaration": true,
-    "declarationMap": true
+    "baseUrl": "../../"
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
-    "**/*.spec.ts",
-    "**/__tests__/**"
+    "node_modules",
+    "dist",
+    "**/*.spec.ts"
   ]
 }

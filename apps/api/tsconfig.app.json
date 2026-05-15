@@ -14,6 +14,12 @@
       "@libs/validation/*": ["libs/validation/src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules","dist","**/*.spec.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts"
+  ]
 }
