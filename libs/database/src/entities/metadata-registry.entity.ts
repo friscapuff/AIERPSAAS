@@ -2,15 +2,20 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 export interface MetadataField {
   name: string;
-  display_name: string;
-  data_type: 'string' | 'integer' | 'decimal' | 'date' | 'boolean' | 'lookup' | 'jsonb';
-  is_required: boolean;
-  is_unique: boolean;
+  display_name?: string;
+  type?: string;
+  data_type?: string;
+  required?: boolean;
+  is_required?: boolean;
+  is_unique?: boolean;
+  default?: any;
   default_value?: any;
   max_length?: number;
   precision?: number;
   scale?: number;
+  lookup_table?: string;
   lookupTable?: string;
+  lookup_field?: string;
   lookupField?: string;
   description?: string;
 }
