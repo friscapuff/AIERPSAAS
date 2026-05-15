@@ -36,12 +36,10 @@ export class TenantMiddleware implements NestMiddleware {
       req.tenantId = tenantId;
 
       // Set PostgreSQL session variable for RLS
-      // This will be used by PostgreSQL policies to filter data
       const queryRunner = this.dataSource.createQueryRunner();
       try {
         await queryRunner.connect();
         await queryRunner.query(`SET LOCAL app.current_tenant_id = '${this.escapePostgresString(tenantId)}'`);
-        // Store query runner in request for later cleanup
         (req as any).queryRunner = queryRunner;
       } catch (error) {
         this.logger.error(`Failed to set tenant context: ${error.message}`);
@@ -67,22 +65,22 @@ export class TenantMiddleware implements NestMiddleware {
 
   private extractTenantId(req: TenantRequest): string | null {
     // First, try to get tenant_id from X-Tenant-ID header
-    const headerTenantId = req.get(this.configService.get('app.tenant.headerName', 'X-Tenant-ID'));
+    const headerName = this.configService.get<string>('app.tenant.headerName') || 'X-Tenant-ID';
+    const headerTenantId = req.get(headerName) as string | undefined;
     if (headerTenantId) {
       return headerTenantId;
     }
 
     // Second, try to extract from JWT token
-    const authHeader = req.get('Authorization');
+    const authHeader = req.get('Authorization') as string | undefined;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       try {
         const jwtSecret = this.configService.get<string>('app.jwt.secret');
         const decoded = jwt.verify(token, jwtSecret) as any;
-        const tenantClaimName = this.configService.get('app.tenant.jwtClaimName', 'tenant_id');
+        const tenantClaimName = this.configService.get<string>('app.tenant.jwtClaimName') || 'tenant_id';
         return decoded[tenantClaimName] || null;
       } catch (error) {
-        // JWT verification failed, continue to next extraction method
         this.logger.debug(`Failed to extract tenant from JWT: ${error.message}`);
       }
     }
