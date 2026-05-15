@@ -2,11 +2,8 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/libs/validation",
-    "declaration": true,
-    "declarationMap": true,
-    "inlineSourceMap": true,
-    "types": ["jest", "node"]
+    "baseUrl": "../../"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }
