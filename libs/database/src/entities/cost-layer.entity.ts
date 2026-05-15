@@ -1,6 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity('cost_layers')
+@Index(['tenant_id', 'item_id', 'warehouse_id'])
+@Index(['layer_date'])
 export class CostLayer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -9,16 +11,22 @@ export class CostLayer {
   tenant_id: string;
 
   @Column('uuid')
-  product_id: string;
+  item_id: string;
 
-  @Column('decimal', { precision: 15, scale: 2 })
+  @Column('uuid')
+  warehouse_id: string;
+
+  @Column('decimal', { precision: 15, scale: 4 })
+  remaining_quantity: number;
+
+  @Column('decimal', { precision: 15, scale: 4 })
   unit_cost: number;
 
-  @Column('integer')
-  quantity: number;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  layer_date: Date;
 
-  @Column('varchar')
-  costing_method: string;
+  @Column('uuid', { nullable: true })
+  reference_log_id: string;
 
   @CreateDateColumn()
   created_at: Date;
