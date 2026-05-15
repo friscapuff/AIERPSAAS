@@ -1,13 +1,6 @@
 /**
  * AiERP Database Seed Script
  * Run with: npx ts-node apps/api/src/database/seeds/seed.ts
- * Or via: npm run seed
- *
- * Creates:
- * - Default tenant (BSTC)
- * - Admin role with full permissions
- * - Admin user (admin@aierp.local / Admin123!)
- * - Basic IFRS Chart of Accounts
  */
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -23,7 +16,6 @@ const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || process.env.DB_DATABASE || 'aierp',
-  entities: [path.join(__dirname, '../../**/*.entity{.ts,.js}')],
   synchronize: false,
 });
 
@@ -39,26 +31,27 @@ async function seed() {
     // 1. Create Default Tenant
     console.log('1/4  Creating default tenant...');
     const tenantResult = await queryRunner.query(`
-      INSERT INTO tenants (id, name, subdomain, subscription_plan, status, max_users, settings)
+      INSERT INTO tenants (id, name, slug, subdomain, subscription_plan, status, is_active, settings)
       VALUES (
         'a0000000-0000-0000-0000-000000000001',
         'BSTC Group',
         'bstc',
-        'enterprise',
-        'active',
-        50,
+        'bstc',
+        'FREE',
+        'trial',
+        true,
         '{"currency": "JOD", "timezone": "Asia/Amman", "fiscal_year_start": 1}'::jsonb
       )
       ON CONFLICT (subdomain) DO UPDATE SET name = EXCLUDED.name
       RETURNING id;
     `);
     const tenantId = tenantResult[0].id;
-    console.log('   Done - Tenant created: ' + tenantId);
+    console.log('   Done - Tenant: ' + tenantId);
 
     // 2. Create Admin Role
     console.log('2/4  Creating admin role...');
     const roleResult = await queryRunner.query(`
-      INSERT INTO roles (id, tenant_id, name, description, is_system, permissions)
+      INSERT INTO roles (id, tenant_id, name, description, is_active, permissions, field_restrictions)
       VALUES (
         'b0000000-0000-0000-0000-000000000001',
         '${tenantId}',
@@ -75,13 +68,14 @@ async function seed() {
           "webhooks": {"create": true, "read": true, "update": true, "delete": true},
           "workflow": {"create": true, "read": true, "update": true, "delete": true},
           "dynamic_builder": {"create": true, "read": true, "update": true, "delete": true}
-        }'::jsonb
+        }'::jsonb,
+        '[]'::jsonb
       )
-      ON CONFLICT DO NOTHING
+      ON CONFLICT (tenant_id, name) DO NOTHING
       RETURNING id;
     `);
     const roleId = roleResult[0]?.id || 'b0000000-0000-0000-0000-000000000001';
-    console.log('   Done - Admin role created: ' + roleId);
+    console.log('   Done - Role: ' + roleId);
 
     // 3. Create Admin User
     console.log('3/4  Creating admin user...');
@@ -98,14 +92,13 @@ async function seed() {
         '${roleId}',
         true
       )
-      ON CONFLICT DO NOTHING;
+      ON CONFLICT (tenant_id, email) DO NOTHING;
     `);
-    console.log('   Done - Admin user created: admin@aierp.local / Admin123!');
+    console.log('   Done - User: admin@aierp.local / Admin123!');
 
     // 4. Create Chart of Accounts (IFRS-based)
     console.log('4/4  Creating chart of accounts...');
     const accounts = [
-      // Assets (1xxx)
       { code: '1000', name: 'Assets', type: 'Asset', level: 0, parent: null },
       { code: '1100', name: 'Current Assets', type: 'Asset', level: 1, parent: '1000' },
       { code: '1110', name: 'Cash and Cash Equivalents', type: 'Asset', level: 2, parent: '1100' },
@@ -116,10 +109,9 @@ async function seed() {
       { code: '1130', name: 'Inventory', type: 'Asset', level: 2, parent: '1100' },
       { code: '1140', name: 'Prepaid Expenses', type: 'Asset', level: 2, parent: '1100' },
       { code: '1200', name: 'Non-Current Assets', type: 'Asset', level: 1, parent: '1000' },
-      { code: '1210', name: 'Property, Plant and Equipment', type: 'Asset', level: 2, parent: '1200' },
+      { code: '1210', name: 'Property Plant and Equipment', type: 'Asset', level: 2, parent: '1200' },
       { code: '1220', name: 'Accumulated Depreciation', type: 'Asset', level: 2, parent: '1200' },
       { code: '1230', name: 'Intangible Assets', type: 'Asset', level: 2, parent: '1200' },
-      // Liabilities (2xxx)
       { code: '2000', name: 'Liabilities', type: 'Liability', level: 0, parent: null },
       { code: '2100', name: 'Current Liabilities', type: 'Liability', level: 1, parent: '2000' },
       { code: '2110', name: 'Accounts Payable', type: 'Liability', level: 2, parent: '2100' },
@@ -129,17 +121,14 @@ async function seed() {
       { code: '2200', name: 'Non-Current Liabilities', type: 'Liability', level: 1, parent: '2000' },
       { code: '2210', name: 'Long-term Loans', type: 'Liability', level: 2, parent: '2200' },
       { code: '2220', name: 'End of Service Benefits', type: 'Liability', level: 2, parent: '2200' },
-      // Equity (3xxx)
       { code: '3000', name: 'Equity', type: 'Equity', level: 0, parent: null },
       { code: '3100', name: 'Share Capital', type: 'Equity', level: 1, parent: '3000' },
       { code: '3200', name: 'Retained Earnings', type: 'Equity', level: 1, parent: '3000' },
       { code: '3300', name: 'Reserves', type: 'Equity', level: 1, parent: '3000' },
-      // Revenue (4xxx)
       { code: '4000', name: 'Revenue', type: 'Revenue', level: 0, parent: null },
       { code: '4100', name: 'Sales Revenue', type: 'Revenue', level: 1, parent: '4000' },
       { code: '4200', name: 'Service Revenue', type: 'Revenue', level: 1, parent: '4000' },
       { code: '4300', name: 'Other Income', type: 'Revenue', level: 1, parent: '4000' },
-      // Expenses (5xxx)
       { code: '5000', name: 'Expenses', type: 'Expense', level: 0, parent: null },
       { code: '5100', name: 'Cost of Goods Sold', type: 'Expense', level: 1, parent: '5000' },
       { code: '5200', name: 'Salaries and Wages', type: 'Expense', level: 1, parent: '5000' },
@@ -150,7 +139,6 @@ async function seed() {
       { code: '5700', name: 'Office Supplies', type: 'Expense', level: 1, parent: '5000' },
       { code: '5800', name: 'Professional Fees', type: 'Expense', level: 1, parent: '5000' },
       { code: '5900', name: 'Miscellaneous Expenses', type: 'Expense', level: 1, parent: '5000' },
-      // Intercompany (6xxx)
       { code: '6000', name: 'Intercompany', type: 'Asset', level: 0, parent: null },
       { code: '6100', name: 'Due From Related Parties', type: 'Asset', level: 1, parent: '6000' },
       { code: '6200', name: 'Due To Related Parties', type: 'Liability', level: 1, parent: '6000' },
@@ -160,9 +148,9 @@ async function seed() {
     const codeToId: Record<string, string> = {};
     for (const acct of accounts) {
       const result = await queryRunner.query(`
-        INSERT INTO chart_of_accounts (tenant_id, code, name, account_type, level, is_active, is_system, currency)
-        VALUES ('${tenantId}', '${acct.code}', '${acct.name}', '${acct.type}', ${acct.level}, true, true, 'JOD')
-        ON CONFLICT DO NOTHING
+        INSERT INTO chart_of_accounts (tenant_id, code, name, account_type, level, is_active)
+        VALUES ('${tenantId}', '${acct.code}', '${acct.name}', '${acct.type}', ${acct.level}, true)
+        ON CONFLICT (tenant_id, code) DO NOTHING
         RETURNING id;
       `);
       if (result[0]) {
@@ -186,7 +174,7 @@ async function seed() {
     console.log('  Login credentials:');
     console.log('  Email:    admin@aierp.local');
     console.log('  Password: Admin123!');
-    console.log('  Tenant:   bstc\n');
+    console.log('  Tenant:   bstc (ID: ' + tenantId + ')\n');
 
   } catch (error) {
     await queryRunner.rollbackTransaction();
