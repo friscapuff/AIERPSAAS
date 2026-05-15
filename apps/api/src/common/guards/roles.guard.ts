@@ -54,9 +54,7 @@ export class RolesGuard implements CanActivate {
           role === 'super_admin',
       );
 
-      if (!hasModuleRole) {
-        return false;
-      }
+      if (!hasModuleRole) return false;
 
       if (requiredRole.actions && requiredRole.actions.length > 0) {
         return requiredRole.actions.every(

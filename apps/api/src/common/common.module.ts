@@ -10,6 +10,7 @@ import { AuditInterceptor } from './interceptors/audit.interceptor';
 import { TransformInterceptor } from './interceptors/transform.interceptor';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { TenantValidationPipe } from './pipes/tenant-validation.pipe';
 
 @Global()
 @Module({
@@ -26,28 +27,14 @@ import { RolesGuard } from './guards/roles.guard';
     }),
   ],
   providers: [
-    {
-      provide: 'APP_FILTER',
-      useClass: HttpExceptionFilter,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: TransformInterceptor,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: AuditInterceptor,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
+    { provide: 'APP_FILTER', useClass: HttpExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    TenantValidationPipe,
   ],
-  exports: [PassportModule, JwtModule],
+  exports: [PassportModule, JwtModule, TenantValidationPipe],
 })
 export class CommonModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -52,9 +52,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     if (status >= 500) {
-      this.logger.error(`HTTP Error ${status}: ${message}`, exception.stack);
+      this.logger.error(`HTTP Error ${status}: ${message}`, exception.stack, { path: request.url, method: request.method });
     } else {
-      this.logger.warn(`HTTP Error ${status}: ${message}`);
+      this.logger.warn(`HTTP Error ${status}: ${message}`, { path: request.url, method: request.method });
     }
 
     response.status(status).json(errorResponse);

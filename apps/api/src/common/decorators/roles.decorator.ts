@@ -6,4 +6,5 @@ export interface RolePermission {
 }
 
 export const ROLES_KEY = 'roles';
+
 export const Roles = (...permissions: RolePermission[]) => SetMetadata(ROLES_KEY, permissions);
