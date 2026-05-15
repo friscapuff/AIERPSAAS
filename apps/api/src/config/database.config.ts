@@ -7,8 +7,8 @@ export const databaseConfig = registerAs('database', () => ({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || process.env.DB_DATABASE || 'aierp',
-  synchronize: false,
-  migrationsRun: true,
+  synchronize: process.env.NODE_ENV !== 'production',
+  migrationsRun: false,
   logging: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   logger: 'advanced-console',
   ssl: process.env.NODE_ENV === 'production'
