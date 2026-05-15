@@ -1,6 +1,22 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+
+export interface MetadataField {
+  name: string;
+  display_name: string;
+  data_type: 'string' | 'integer' | 'decimal' | 'date' | 'boolean' | 'lookup' | 'jsonb';
+  is_required: boolean;
+  is_unique: boolean;
+  default_value?: any;
+  max_length?: number;
+  precision?: number;
+  scale?: number;
+  lookupTable?: string;
+  lookupField?: string;
+  description?: string;
+}
 
 @Entity('metadata_registry')
+@Index(['tenant_id', 'table_name'], { unique: true })
 export class MetadataRegistry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -18,7 +34,7 @@ export class MetadataRegistry {
   description: string;
 
   @Column('jsonb')
-  fields: Record<string, any>[];
+  fields: MetadataField[];
 
   @Column('uuid')
   created_by: string;
