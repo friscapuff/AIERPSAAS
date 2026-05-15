@@ -1,9 +1,12 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum MovementType {
+  IN = 'IN',
+  OUT = 'OUT',
+  TRANSFER = 'TRANSFER',
+  ADJUST = 'ADJUST',
   RECEIPT = 'RECEIPT',
   ISSUE = 'ISSUE',
-  TRANSFER = 'TRANSFER',
   ADJUSTMENT = 'ADJUSTMENT',
   RETURN = 'RETURN',
 }
