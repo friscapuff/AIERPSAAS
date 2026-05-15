@@ -1,5 +1,5 @@
-import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, IsUUID, IsOptional, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LoginDto {
   @ApiProperty({
@@ -17,10 +17,25 @@ export class LoginDto {
   @MinLength(8)
   password: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '550e8400-e29b-41d4-a716-446655440000',
-    description: 'Tenant ID',
+    description: 'Tenant ID (UUID). Provide either tenantId or tenantSubdomain.',
   })
   @IsUUID()
-  tenantId: string;
+  @IsOptional()
+  tenantId?: string;
+
+  @ApiPropertyOptional({
+    example: 'acme',
+    description: 'Tenant subdomain. Provide either tenantId or tenantSubdomain.',
+  })
+  @IsString()
+  @IsOptional()
+  tenantSubdomain?: string;
+
+  @ApiPropertyOptional({
+    description: 'Remember me flag',
+  })
+  @IsOptional()
+  rememberMe?: boolean;
 }
