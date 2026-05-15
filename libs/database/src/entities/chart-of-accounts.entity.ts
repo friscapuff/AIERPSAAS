@@ -1,6 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Tenant } from './tenant.entity';
+
+export enum AccountType {
+  ASSET = 'ASSET',
+  LIABILITY = 'LIABILITY',
+  EQUITY = 'EQUITY',
+  REVENUE = 'REVENUE',
+  EXPENSE = 'EXPENSE',
+  CONTRA_ASSET = 'CONTRA_ASSET',
+  CONTRA_LIABILITY = 'CONTRA_LIABILITY',
+  CONTRA_EQUITY = 'CONTRA_EQUITY',
+}
 
 @Entity('chart_of_accounts')
+@Index(['tenant_id', 'code'], { unique: true })
+@Index(['tenant_id', 'account_type'])
+@Index(['tenant_id', 'parent_id'])
 export class ChartOfAccounts {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -8,16 +23,36 @@ export class ChartOfAccounts {
   @Column('uuid')
   tenant_id: string;
 
-  @Column('varchar')
-  account_number: string;
+  @ManyToOne(() => Tenant, { eager: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
 
-  @Column('varchar')
-  account_name: string;
+  @Column('varchar', { length: 20 })
+  code: string;
 
-  @Column('varchar')
-  account_type: string;
+  @Column('varchar', { length: 255 })
+  name: string;
 
-  @Column('decimal', { precision: 15, scale: 2 })
+  @Column({ type: 'enum', enum: AccountType })
+  account_type: AccountType;
+
+  @Column('uuid', { nullable: true })
+  parent_id: string;
+
+  @ManyToOne(() => ChartOfAccounts, { nullable: true, eager: false })
+  @JoinColumn({ name: 'parent_id' })
+  parent: ChartOfAccounts;
+
+  @Column('text', { nullable: true })
+  description: string;
+
+  @Column('boolean', { default: true })
+  is_active: boolean;
+
+  @Column('integer', { default: 0 })
+  level: number;
+
+  @Column('decimal', { precision: 18, scale: 4, default: 0 })
   balance: number;
 
   @CreateDateColumn()
