@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -37,9 +37,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new user' })
   @ApiBody({ type: RegisterDto })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
-  async register(@Body() registerDto: RegisterDto, @CurrentTenant() tenantId: string) {
-    // TODO: Implement registration logic
-    return this.authService.register(registerDto, tenantId);
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
   @Public()
@@ -48,9 +47,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Login user' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Login successful', schema: { example: { access_token: 'token', refresh_token: 'token' } } })
-  async login(@Body() loginDto: LoginDto, @CurrentTenant() tenantId: string) {
-    // TODO: Implement login logic
-    return this.authService.login(loginDto, tenantId);
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
   }
 
   @Post('refresh')
@@ -60,9 +58,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto, @CurrentUser() user: any) {
-    // TODO: Implement token refresh logic
-    return this.authService.refreshToken(refreshTokenDto.refreshToken, user.id);
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto);
   }
 
   @Post('logout')
@@ -71,8 +68,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'Logout successful' })
-  async logout(@CurrentUser() user: any) {
-    // TODO: Implement logout logic (e.g., blacklist token)
-    return this.authService.logout(user.id);
+  async logout(@CurrentUser() user: any, @Headers('authorization') authHeader: string) {
+    const token = authHeader?.replace('Bearer ', '') || '';
+    return this.authService.logout(user.id, token);
   }
 }
