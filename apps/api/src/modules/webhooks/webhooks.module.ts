@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Webhook } from 'libs/database/src/entities/webhook.entity';
+import { Webhook, WebhookDelivery } from '@libs/database';
 import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
+import { WebhookEventService } from './webhook-event.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Webhook])],
+  imports: [TypeOrmModule.forFeature([Webhook, WebhookDelivery])],
   controllers: [WebhooksController],
-  providers: [WebhooksService],
-  exports: [WebhooksService],
+  providers: [WebhooksService, WebhookEventService],
+  exports: [WebhooksService, WebhookEventService],
 })
 export class WebhooksModule {}
