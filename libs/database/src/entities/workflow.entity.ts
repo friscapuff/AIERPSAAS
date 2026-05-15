@@ -1,27 +1,54 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { Tenant } from './tenant.entity';
+
+export interface WorkflowCondition {
+  field: string;
+  operator: string;
+  value: any;
+}
+
+export interface ApprovalLevel {
+  level: number;
+  approver_role_id: string;
+  condition?: WorkflowCondition;
+}
 
 @Entity('workflows')
+@Index(['tenant_id', 'trigger_doc_type'])
 export class Workflow {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('uuid')
+  @Column({ type: 'uuid' })
   tenant_id: string;
 
-  @Column()
+  @ManyToOne(() => Tenant, { eager: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
+  @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ nullable: true })
-  description: string;
+  @Column({ type: 'varchar', length: 100 })
+  trigger_doc_type: string;
 
-  @Column('jsonb')
-  definition: Record<string, any>;
+  @Column({ type: 'jsonb', nullable: true })
+  conditions: WorkflowCondition[];
 
-  @Column('boolean', { default: true })
+  @Column({ type: 'jsonb' })
+  approval_levels: ApprovalLevel[];
+
+  @Column({ type: 'boolean', default: true })
   is_active: boolean;
-
-  @Column('uuid')
-  created_by: string;
 
   @CreateDateColumn()
   created_at: Date;
