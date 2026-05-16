@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PlusIcon,
   TableCellsIcon,
@@ -18,6 +18,7 @@ import {
   useDynamicRecords,
   useCreateTable,
   useDeleteTable,
+  useUpdateTable,
   useCreateRecord,
   type DynamicTable,
   type FieldDefinition,
@@ -214,6 +215,158 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
+// ─── Edit Table Modal ─────────────────────────────────────────────────────────
+function EditTableModal({
+  table,
+  onClose,
+}: {
+  table: DynamicTable | null;
+  onClose: () => void;
+}) {
+  const updateTable = useUpdateTable();
+  const [tableLabel, setTableLabel] = useState('');
+  const [tableDesc, setTableDesc] = useState('');
+  const [fields, setFields] = useState<NewField[]>([]);
+
+  useEffect(() => {
+    if (table) {
+      setTableLabel(table.label);
+      setTableDesc(table.description ?? '');
+      setFields(
+        table.fields.map((f) => ({
+          name: f.name,
+          label: f.label,
+          type: f.type,
+          required: f.required ?? false,
+        }))
+      );
+    }
+  }, [table]);
+
+  const addField = () =>
+    setFields((f) => [...f, { name: '', label: '', type: 'TEXT', required: false }]);
+
+  const removeField = (i: number) => setFields((f) => f.filter((_, idx) => idx !== i));
+
+  const updateField = (i: number, key: keyof NewField, val: string | boolean) =>
+    setFields((f) => f.map((field, idx) => (idx === i ? { ...field, [key]: val } : field)));
+
+  const handleSave = async () => {
+    if (!table) return;
+    if (!tableLabel) {
+      notify.error('Table label is required.');
+      return;
+    }
+    if (fields.some((f) => !f.name || !f.label)) {
+      notify.error('All fields must have a name and label.');
+      return;
+    }
+    try {
+      await updateTable.mutateAsync({
+        id: table.name,
+        label: tableLabel,
+        description: tableDesc,
+        fields: fields.map((f, i) => ({
+          name: f.name,
+          label: f.label,
+          type: f.type,
+          required: f.required,
+          unique: false,
+          indexed: false,
+          order: i,
+        })),
+      });
+      notify.success(`Table "${tableLabel}" updated successfully.`);
+      onClose();
+    } catch {
+      notify.error('Failed to update table.');
+    }
+  };
+
+  return (
+    <Modal
+      open={!!table}
+      onClose={onClose}
+      title="Edit Table"
+      description="Update table metadata and fields"
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} loading={updateTable.isPending}>
+            Save Changes
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Display Label"
+            value={tableLabel}
+            onChange={(e) => setTableLabel(e.target.value)}
+            placeholder="Customer Contacts"
+            required
+          />
+          <Input
+            label="Table Name (internal)"
+            value={table?.name ?? ''}
+            disabled
+            hint="Cannot be changed after creation"
+          />
+        </div>
+        <Textarea
+          label="Description"
+          value={tableDesc}
+          onChange={(e) => setTableDesc(e.target.value)}
+          placeholder="What is this table for?"
+        />
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-surface-500 font-medium">Fields ({fields.length})</p>
+            <Button variant="secondary" size="xs" leftIcon={<PlusIcon className="h-3.5 w-3.5" />} onClick={addField}>
+              Add Field
+            </Button>
+          </div>
+          {fields.map((field, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end p-3 bg-surface-50 rounded-lg border border-surface-200">
+              <Input
+                label="Field Name"
+                value={field.name}
+                onChange={(e) => updateField(i, 'name', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                placeholder="field_name"
+                size="sm"
+              />
+              <Input
+                label="Label"
+                value={field.label}
+                onChange={(e) => updateField(i, 'label', e.target.value)}
+                placeholder="Field Label"
+                size="sm"
+              />
+              <Select
+                label="Type"
+                value={field.type}
+                onChange={(e) => updateField(i, 'type', e.target.value)}
+                options={FIELD_TYPES}
+                size="sm"
+              />
+              <button
+                type="button"
+                onClick={() => removeField(i)}
+                className="p-1.5 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 mb-0.5"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Table data view ──────────────────────────────────────────────────────────
 function TableDataView({ table }: { table: DynamicTable }) {
   const { data: recordsData, isLoading } = useDynamicRecords(table.name);
@@ -259,6 +412,7 @@ export default function DynamicBuilderPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTable, setSelectedTable] = useState<DynamicTable | null>(null);
   const [deleteTable, setDeleteTable] = useState<DynamicTable | null>(null);
+  const [editTable, setEditTable] = useState<DynamicTable | null>(null);
 
   const { data: tables, isLoading } = useDynamicTables();
   const deleteTableMutation = useDeleteTable();
@@ -365,7 +519,7 @@ export default function DynamicBuilderPage() {
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={(e) => { e.stopPropagation(); }}
+                      onClick={(e) => { e.stopPropagation(); setEditTable(table); }}
                       className="p-1 rounded text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                     >
                       <PencilSquareIcon className="h-4 w-4" />
@@ -403,6 +557,7 @@ export default function DynamicBuilderPage() {
 
       {/* Modals */}
       <CreateTableModal open={showCreate} onClose={() => setShowCreate(false)} />
+      <EditTableModal table={editTable} onClose={() => setEditTable(null)} />
       <ConfirmModal
         open={!!deleteTable}
         onClose={() => setDeleteTable(null)}
