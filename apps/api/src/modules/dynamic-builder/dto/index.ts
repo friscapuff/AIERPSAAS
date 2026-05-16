@@ -1,4 +1,4 @@
-export { CreateTableDto, FieldType, FieldDefinition } from './create-table.dto';
+export { CreateTableDto, FieldType, FieldDefinition, normalizeFieldType } from './create-table.dto';
 export { UpdateTableDto } from './update-table.dto';
 export { CreateRecordDto } from './create-record.dto';
 export { UpdateRecordDto } from './update-record.dto';
