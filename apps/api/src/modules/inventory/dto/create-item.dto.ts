@@ -23,15 +23,25 @@ export class CreateItemDto {
   @IsOptional()
   category?: string;
 
-  @ApiProperty({ example: 'PC', description: 'Unit of measure' })
+  @ApiPropertyOptional({ example: 'PC', description: 'Unit of measure' })
   @IsString()
-  @IsNotEmpty()
-  unitOfMeasure: string;
+  @IsOptional()
+  unitOfMeasure?: string;
 
-  @ApiProperty({ enum: CostingMethod, description: 'Costing method' })
-  @IsEnum(CostingMethod)
-  @IsNotEmpty()
-  costingMethod: CostingMethod;
+  @ApiPropertyOptional({ example: 'PC', description: 'Unit of measure (frontend alias)' })
+  @IsString()
+  @IsOptional()
+  unit?: string;
+
+  @ApiPropertyOptional({ enum: CostingMethod, description: 'Costing method' })
+  @IsString()
+  @IsOptional()
+  costingMethod?: string;
+
+  @ApiPropertyOptional({ description: 'Costing method (frontend alias)' })
+  @IsString()
+  @IsOptional()
+  costMethod?: string;
 
   @ApiPropertyOptional({ example: 10, description: 'Minimum stock level for alerts' })
   @IsNumber()
@@ -44,4 +54,14 @@ export class CreateItemDto {
   @IsPositive()
   @IsOptional()
   maxStockLevel?: number;
+
+  @ApiPropertyOptional({ description: 'Reorder point (frontend alias for minStockLevel)' })
+  @IsNumber()
+  @IsOptional()
+  reorderPoint?: number;
+
+  @ApiPropertyOptional({ description: 'Reorder quantity (frontend alias for maxStockLevel)' })
+  @IsNumber()
+  @IsOptional()
+  reorderQty?: number;
 }
