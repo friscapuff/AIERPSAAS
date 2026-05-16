@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { formatDate, cn } from '@/lib/utils';
 import { notify } from '@/components/ui/Toast';
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
+// ─── Tabs ────────────────────────────────────────────────────────��────────────
 type Tab = 'company' | 'users' | 'roles' | 'webhooks' | 'audit';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -173,7 +173,7 @@ const userColumns: ColumnDef<UserRecord, unknown>[] = [
   },
 ];
 
-// ─── Webhook columns ──────────────────────────────────────────────────────────
+// ─── Webhook columns ──────────────────────────��───────────────────────────────
 const webhookColumns: ColumnDef<WebhookConfig, unknown>[] = [
   {
     accessorKey: 'name',
@@ -216,7 +216,7 @@ const webhookColumns: ColumnDef<WebhookConfig, unknown>[] = [
   },
 ];
 
-// ─── Audit Log columns ────────────────────────────────────────────────────────
+// ─── Audit Log columns ─────────────────────────────────���──────────────────────
 const auditColumns: ColumnDef<AuditEntry, unknown>[] = [
   {
     accessorKey: 'timestamp',
@@ -306,7 +306,7 @@ export default function SettingsPage() {
       setAuditLoading(true);
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-        const res = await fetch('/api/v1/audit-log', {
+        const res = await fetch('/api/v1/audit/logs', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
