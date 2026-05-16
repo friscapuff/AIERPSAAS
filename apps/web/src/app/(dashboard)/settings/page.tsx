@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BuildingOffice2Icon,
   UsersIcon,
@@ -10,6 +10,7 @@ import {
   PencilSquareIcon,
   XMarkIcon,
   CheckIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -22,13 +23,14 @@ import { formatDate, cn } from '@/lib/utils';
 import { notify } from '@/components/ui/Toast';
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
-type Tab = 'company' | 'users' | 'roles' | 'webhooks';
+type Tab = 'company' | 'users' | 'roles' | 'webhooks' | 'audit';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'company',  label: 'Company',     icon: BuildingOffice2Icon },
   { id: 'users',    label: 'Users',        icon: UsersIcon },
   { id: 'roles',    label: 'Roles',        icon: ShieldCheckIcon },
   { id: 'webhooks', label: 'Webhooks',     icon: LinkIcon },
+  { id: 'audit',    label: 'Audit Log',    icon: ClipboardDocumentListIcon },
 ];
 
 // ─── Mock types (will come from API hooks in real integration) ───────────────
@@ -48,6 +50,20 @@ interface WebhookConfig {
   events: string[];
   status: 'active' | 'inactive';
   lastDelivery?: string;
+}
+
+interface AuditEntry {
+  id: string;
+  user_id: string;
+  action: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  old_values: string | null;
+  new_values: string | null;
+  timestamp: string;
+  ip_address: string;
+  status: string;
 }
 
 const MOCK_USERS: UserRecord[] = [
@@ -200,6 +216,55 @@ const webhookColumns: ColumnDef<WebhookConfig, unknown>[] = [
   },
 ];
 
+// ─── Audit Log columns ────────────────────────────────────────────────────────
+const auditColumns: ColumnDef<AuditEntry, unknown>[] = [
+  {
+    accessorKey: 'timestamp',
+    header: 'Time',
+    cell: ({ getValue }) => (
+      <span className="text-xs text-surface-500 whitespace-nowrap">{formatDate(String(getValue()))}</span>
+    ),
+  },
+  {
+    accessorKey: 'action',
+    header: 'Action',
+    cell: ({ getValue }) => {
+      const action = String(getValue());
+      const color = action === 'CREATE' ? 'text-success-600' : action === 'DELETE' ? 'text-danger-600' : 'text-warning-600';
+      return <span className={`text-xs font-semibold ${color}`}>{action}</span>;
+    },
+  },
+  {
+    accessorKey: 'module',
+    header: 'Module',
+    cell: ({ getValue }) => (
+      <span className="text-xs bg-surface-100 text-surface-700 px-2 py-0.5 rounded">{String(getValue())}</span>
+    ),
+  },
+  {
+    accessorKey: 'entity_type',
+    header: 'Entity',
+    cell: ({ row, getValue }) => (
+      <div>
+        <p className="text-xs font-medium text-surface-800">{String(getValue())}</p>
+        <p className="text-2xs text-surface-400 font-mono">{row.original.entity_id?.slice(0, 8)}…</p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'user_id',
+    header: 'User',
+    cell: ({ getValue }) => (
+      <span className="text-xs text-surface-500 font-mono">{String(getValue()).slice(0, 8)}…</span>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ getValue }) => <StatusBadge status={String(getValue()) === 'success' ? 'active' : 'inactive'} dot />,
+  },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { tenant } = useAuth();
@@ -209,6 +274,62 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('VIEWER');
   const [grants, setGrants] = useState(DEFAULT_GRANTS);
+  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  // ─── Read URL hash on mount and on hash change ────────────────────────────
+  useEffect(() => {
+    const readHash = () => {
+      const hash = window.location.hash.replace('#', '') as Tab;
+      const validTabs: Tab[] = ['company', 'users', 'roles', 'webhooks', 'audit'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    readHash();
+    window.addEventListener('hashchange', readHash);
+    return () => window.removeEventListener('hashchange', readHash);
+  }, []);
+
+  // ─── Update URL hash when tab changes ─────────────────────────────────────
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, '', `/settings#${tab}`);
+  };
+
+  // ─── Fetch audit logs when audit tab is active ────────────────────────────
+  useEffect(() => {
+    if (activeTab !== 'audit') return;
+
+    const fetchAuditLogs = async () => {
+      setAuditLoading(true);
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const res = await fetch('/api/v1/audit-log', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          // Handle wrapped response { data, meta } from TransformInterceptor
+          const entries = json.data ?? json;
+          setAuditLogs(Array.isArray(entries) ? entries : []);
+        } else {
+          // If the endpoint doesn't exist yet, show empty state
+          setAuditLogs([]);
+        }
+      } catch {
+        setAuditLogs([]);
+      } finally {
+        setAuditLoading(false);
+      }
+    };
+
+    fetchAuditLogs();
+  }, [activeTab]);
 
   const toggleGrant = (role: string, permission: string) => {
     setGrants((g) => ({
@@ -245,7 +366,7 @@ export default function SettingsPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                     activeTab === tab.id
@@ -424,6 +545,38 @@ export default function SettingsPage() {
                 emptyMessage="No webhooks configured"
                 emptyDescription="Add a webhook to receive real-time event notifications."
               />
+            </div>
+          )}
+
+          {/* Audit Log */}
+          {activeTab === 'audit' && (
+            <div className="space-y-4">
+              {auditLoading ? (
+                <Card padding="md">
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin h-6 w-6 border-2 border-primary-600 border-t-transparent rounded-full" />
+                    <span className="ml-3 text-sm text-surface-500">Loading audit logs…</span>
+                  </div>
+                </Card>
+              ) : auditLogs.length > 0 ? (
+                <DataTable
+                  data={auditLogs}
+                  columns={auditColumns}
+                  searchPlaceholder="Search audit logs…"
+                  emptyMessage="No audit entries found"
+                />
+              ) : (
+                <Card padding="md">
+                  <div className="text-center py-12">
+                    <ClipboardDocumentListIcon className="h-12 w-12 text-surface-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-surface-700">No Audit Entries Yet</h3>
+                    <p className="text-xs text-surface-500 mt-1 max-w-sm mx-auto">
+                      Audit logs will appear here as actions are performed across the platform.
+                      Every create, update, and delete operation is automatically tracked.
+                    </p>
+                  </div>
+                </Card>
+              )}
             </div>
           )}
         </div>
