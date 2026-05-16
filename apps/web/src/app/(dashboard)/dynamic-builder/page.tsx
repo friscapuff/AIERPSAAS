@@ -216,7 +216,7 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
 
 // ─── Table data view ──────────────────────────────────────────────────────────
 function TableDataView({ table }: { table: DynamicTable }) {
-  const { data: recordsData, isLoading } = useDynamicRecords(table.id);
+  const { data: recordsData, isLoading } = useDynamicRecords(table.name);
 
   const columns: ColumnDef<DynamicRecord, unknown>[] = [
     {
@@ -266,7 +266,8 @@ export default function DynamicBuilderPage() {
   const handleDelete = async () => {
     if (!deleteTable) return;
     try {
-      await deleteTableMutation.mutateAsync(deleteTable.id);
+      // API expects table name (not UUID id)
+      await deleteTableMutation.mutateAsync(deleteTable.name);
       notify.success(`Table "${deleteTable.label}" deleted.`);
       if (selectedTable?.id === deleteTable.id) setSelectedTable(null);
       setDeleteTable(null);
@@ -306,7 +307,7 @@ export default function DynamicBuilderPage() {
           <Card padding="md">
             <Card.Header
               title={`${selectedTable.label} — Field Definitions`}
-              subtitle={`${selectedTable.fields.length} fields · ${selectedTable.recordCount} records`}
+              subtitle={`${selectedTable.fields.length} fields · ${selectedTable.recordCount ?? 0} records`}
               border
             />
             <div className="flex flex-wrap gap-2">
@@ -316,7 +317,7 @@ export default function DynamicBuilderPage() {
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-surface-50 rounded-lg border border-surface-200"
                 >
                   <span className="font-mono text-xs text-surface-400">
-                    {TYPE_ICONS[field.type] ?? field.type.slice(0, 3)}
+                    {TYPE_ICONS[field.type] ?? (field.type || '').slice(0, 3)}
                   </span>
                   <span className="text-xs font-medium text-surface-700">{field.label}</span>
                   {field.required && (
@@ -386,7 +387,7 @@ export default function DynamicBuilderPage() {
                 <div className="flex items-center gap-3 text-xs text-surface-400">
                   <span>{table.fields.length} fields</span>
                   <span>·</span>
-                  <span>{table.recordCount.toLocaleString()} records</span>
+                  <span>{(table.recordCount ?? 0).toLocaleString()} records</span>
                   {table.isSystem && (
                     <>
                       <span>·</span>
