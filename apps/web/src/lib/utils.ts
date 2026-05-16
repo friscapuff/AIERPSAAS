@@ -54,9 +54,11 @@ export function truncate(str: string, maxLength = 50): string {
   return `${str.slice(0, maxLength - 3)}…`;
 }
 
-export function initials(name: string): string {
+export function initials(name?: string | null): string {
+  if (!name) return '??';
   return name
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .slice(0, 2)
     .join('')
