@@ -52,11 +52,47 @@ export interface AuthContextValue {
   hasRole: (role: string) => boolean;
 }
 
-interface LoginResponse {
+interface LoginApiResponse {
   accessToken: string;
   refreshToken: string;
-  user: User;
-  tenant: Tenant;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    isActive: boolean;
+  };
+  tenant: {
+    id: string;
+    name: string;
+    subdomain: string;
+  };
+}
+
+// ─── Helpers to normalise API response into rich frontend types ───────────────
+function toUser(raw: LoginApiResponse['user']): User {
+  return {
+    id: raw.id,
+    email: raw.email,
+    firstName: raw.firstName ?? '',
+    lastName: raw.lastName ?? '',
+    fullName: [raw.firstName, raw.lastName].filter(Boolean).join(' ') || raw.email,
+    role: 'Admin', // default — backend can extend later
+    permissions: [],
+    avatarUrl: undefined,
+  };
+}
+
+function toTenant(raw: LoginApiResponse['tenant']): Tenant {
+  return {
+    id: raw.id,
+    name: raw.name,
+    subdomain: raw.subdomain ?? '',
+    currency: 'JOD',
+    timezone: 'Asia/Amman',
+    logoUrl: undefined,
+    plan: 'starter',
+  };
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -92,17 +128,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true);
     try {
-      const response = await post<LoginResponse>('/auth/login', credentials);
+      const response = await post<LoginApiResponse>('/auth/login', credentials);
 
       tokenStorage.setAccess(response.accessToken);
       tokenStorage.setRefresh(response.refreshToken);
       tokenStorage.setTenantId(response.tenant.id);
 
-      localStorage.setItem('aierp_user', JSON.stringify(response.user));
-      localStorage.setItem('aierp_tenant', JSON.stringify(response.tenant));
+      const richUser = toUser(response.user);
+      const richTenant = toTenant(response.tenant);
 
-      setUser(response.user);
-      setTenant(response.tenant);
+      localStorage.setItem('aierp_user', JSON.stringify(richUser));
+      localStorage.setItem('aierp_tenant', JSON.stringify(richTenant));
+
+      setUser(richUser);
+      setTenant(richTenant);
 
       router.push('/dashboard');
     } finally {
