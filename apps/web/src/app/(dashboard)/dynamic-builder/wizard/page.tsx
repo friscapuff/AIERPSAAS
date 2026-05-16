@@ -148,12 +148,29 @@ const OPERATORS = [
 ]
 
 const IMPACT_TYPES = [
-  { value: 'GL_POSTING', label: 'GL Posting (Accounting)' },
-  { value: 'INVENTORY_MOVEMENT', label: 'Inventory Movement' },
-  { value: 'RECORD_CREATE', label: 'Create Record' },
-  { value: 'FIELD_UPDATE', label: 'Field Update' },
-  { value: 'WEBHOOK', label: 'Webhook' },
+  // Financial
+  { value: 'GL_POSTING', label: 'GL Posting (Accounting)', category: 'Financial' },
+  { value: 'BUDGET_IMPACT', label: 'Budget Impact', category: 'Financial' },
+  { value: 'COST_UPDATE', label: 'Cost Update (FIFO/WA)', category: 'Financial' },
+  { value: 'COMMISSION_CALC', label: 'Commission Calculation', category: 'Financial' },
+  { value: 'INTERCOMPANY', label: 'Intercompany Transfer', category: 'Financial' },
+  // Supply Chain
+  { value: 'INVENTORY_MOVEMENT', label: 'Inventory Movement', category: 'Supply Chain' },
+  { value: 'STOCK_PLANNING', label: 'Stock Planning / Reorder', category: 'Supply Chain' },
+  // CRM
+  { value: 'CRM_LOG', label: 'CRM Activity Log', category: 'CRM' },
+  // Data
+  { value: 'RECORD_CREATE', label: 'Create Record', category: 'Data' },
+  { value: 'FIELD_UPDATE', label: 'Field Update', category: 'Data' },
+  // Workflow
+  { value: 'NOTIFICATION', label: 'Notification (Email/Push)', category: 'Workflow' },
+  { value: 'WEBHOOK', label: 'Webhook', category: 'Workflow' },
+  { value: 'APPROVAL_TRIGGER', label: 'Trigger Approval', category: 'Workflow' },
+  // Analytics
+  { value: 'ANALYTICS_EVENT', label: 'Analytics Event', category: 'Analytics' },
 ]
+
+const IMPACT_CATEGORIES = ['Financial', 'Supply Chain', 'CRM', 'Data', 'Workflow', 'Analytics']
 
 const PUBLISH_LOCATIONS = [
   { value: 'operations', label: 'Operations' },
@@ -427,22 +444,49 @@ export default function ScreenCreationWizard() {
         initialData,
       })
 
-      // Create real impact rules via the Impact Rules API
+      // Create real impact rules via the Impact Rules API (multi-impact batch)
       if (impactRules.length > 0) {
-        for (const rule of impactRules) {
+        // Group rules by triggerStatus for batch creation
+        const groupedByStatus: Record<string, typeof impactRules> = {}
+        impactRules.forEach((rule) => {
+          if (!groupedByStatus[rule.triggerStatus]) groupedByStatus[rule.triggerStatus] = []
+          groupedByStatus[rule.triggerStatus].push(rule)
+        })
+
+        for (const [status, statusRules] of Object.entries(groupedByStatus)) {
           try {
-            await post('/dynamic-builder/impact-rules', {
-              tableName,
-              ruleName: rule.description || `${rule.impactType} on ${rule.triggerStatus}`,
-              description: rule.description,
-              triggerStatus: rule.triggerStatus,
-              impactType: rule.impactType,
-              config: { ...rule.config, targetTable: rule.targetTable },
-              isActive: true,
-              priority: 1,
-            })
+            if (statusRules.length > 1) {
+              // Batch create as a group
+              await post('/dynamic-builder/impact-rules/batch', {
+                tableName,
+                triggerStatus: status,
+                groupName: `${displayName} - ${status}`,
+                executionMode: 'TRANSACTIONAL',
+                rollbackOnFailure: true,
+                rules: statusRules.map((rule, idx) => ({
+                  ruleName: rule.description || `${rule.impactType} on ${rule.triggerStatus}`,
+                  description: rule.description,
+                  impactType: rule.impactType,
+                  config: { ...rule.config, targetTable: rule.targetTable },
+                  priority: idx,
+                })),
+              })
+            } else {
+              // Single rule - create directly
+              const rule = statusRules[0]
+              await post('/dynamic-builder/impact-rules', {
+                tableName,
+                ruleName: rule.description || `${rule.impactType} on ${rule.triggerStatus}`,
+                description: rule.description,
+                triggerStatus: rule.triggerStatus,
+                impactType: rule.impactType,
+                config: { ...rule.config, targetTable: rule.targetTable },
+                isActive: true,
+                priority: 1,
+              })
+            }
           } catch (e) {
-            console.error('Failed to create impact rule:', e)
+            console.error('Failed to create impact rule(s):', e)
           }
         }
       }
@@ -1170,11 +1214,15 @@ export default function ScreenCreationWizard() {
           </div>
           <div>
             <label className="block text-xs text-surface-400 mb-1">Impact Type</label>
-            <Select value={newImpact.impactType} onChange={(e) => setNewImpact({ ...newImpact, impactType: e.target.value })}>
-              {IMPACT_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+            <select value={newImpact.impactType} onChange={(e) => setNewImpact({ ...newImpact, impactType: e.target.value })} className="w-full rounded-lg border border-surface-700 bg-surface-800 px-3 py-2 text-sm text-surface-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500">
+              {IMPACT_CATEGORIES.map((cat) => (
+                <optgroup key={cat} label={cat}>
+                  {IMPACT_TYPES.filter((t) => t.category === cat).map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </optgroup>
               ))}
-            </Select>
+            </select>
           </div>
           <div>
             <label className="block text-xs text-surface-400 mb-1">Target Table</label>
@@ -1204,9 +1252,9 @@ export default function ScreenCreationWizard() {
 
       <div className="p-4 bg-surface-800/50 rounded-lg border border-surface-700">
         <p className="text-xs text-surface-400">
-          <strong className="text-surface-300">Tip:</strong> Impact Rules connect your screen to core engines.
-          For example, when a Sales Invoice is <em>Posted</em>, you can automatically create GL entries (debit Accounts Receivable, credit Revenue)
-          and reduce inventory quantities. You can configure detailed field mappings later in the standalone Impact Rules page.
+          <strong className="text-surface-300">Tip:</strong> Add multiple impact rules with the same trigger status to create a Multi-Impact Group.
+          When the screen is created, rules sharing a trigger status will be grouped and execute together in a single transaction.
+          For example, when a Sales Invoice is <em>Posted</em>, you can automatically create GL entries, reduce inventory, log CRM activity, and update budgets — all atomically.
         </p>
       </div>
     </div>
