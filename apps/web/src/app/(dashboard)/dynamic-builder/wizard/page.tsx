@@ -43,7 +43,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import { useAllTablesGrouped, TableDefinition, useSystemScreens } from '@/hooks/useAllTables'
-import { useScreens, useValidationRules, useApprovalRules } from '@/hooks/useDynamicPlatform'
+import { useCreateScreen, useValidationRules, useApprovalRules } from '@/hooks/useDynamicPlatform'
 import DetailTableEntryGrid from '@/components/platform/DetailTableEntryGrid'
 
 interface Tab {
@@ -145,7 +145,7 @@ const PUBLISH_LOCATIONS = [
 export default function ScreenCreationWizard() {
   const router = useRouter()
   const { systemTables, dynamicTables, allTables } = useAllTablesGrouped()
-  const { createScreen } = useScreens()
+  const { mutateAsync: createScreen } = useCreateScreen()
   const { rules: existingValidations } = useValidationRules()
   const { rules: existingApprovals } = useApprovalRules()
 
