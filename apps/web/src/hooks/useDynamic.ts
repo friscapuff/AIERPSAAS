@@ -52,6 +52,42 @@ export interface DynamicRecord {
   updatedAt: string;
 }
 
+// ─── API → Frontend mappers ───────────────────────────────────────────────────
+// The API returns snake_case entity shape; the frontend uses camelCase.
+function mapField(raw: any, index: number): FieldDefinition {
+  return {
+    id: raw.id || raw.name || `field_${index}`,
+    name: raw.name,
+    label: raw.label || raw.display_name || raw.name,
+    type: raw.type || raw.data_type || 'TEXT',
+    required: raw.required ?? raw.is_required ?? false,
+    unique: raw.unique ?? raw.is_unique ?? false,
+    indexed: raw.indexed ?? false,
+    defaultValue: raw.defaultValue ?? raw.default ?? raw.default_value,
+    options: raw.options,
+    relationTableId: raw.relationTableId ?? raw.lookup_table ?? raw.lookupTable,
+    order: raw.order ?? index,
+  };
+}
+
+function mapTable(raw: any): DynamicTable {
+  const fields = Array.isArray(raw.fields)
+    ? raw.fields.map((f: any, i: number) => mapField(f, i))
+    : [];
+
+  return {
+    id: raw.id,
+    name: raw.table_name || raw.name,
+    label: raw.display_name || raw.label || raw.table_name || raw.name || '',
+    description: raw.description,
+    icon: raw.icon,
+    fields,
+    recordCount: raw.recordCount ?? raw.record_count ?? 0,
+    isSystem: raw.isSystem ?? raw.is_system ?? false,
+    createdAt: raw.createdAt || raw.created_at || '',
+  };
+}
+
 // ─── Query keys ───────────────────────────────────────────────────────────────
 export const dynamicKeys = {
   all:     ['dynamic'] as const,
@@ -65,14 +101,20 @@ export const dynamicKeys = {
 export function useDynamicTables() {
   return useQuery({
     queryKey: dynamicKeys.tables(),
-    queryFn: () => get<DynamicTable[]>('/dynamic-builder/tables'),
+    queryFn: async () => {
+      const raw = await get<any[]>('/dynamic-builder/tables');
+      return (Array.isArray(raw) ? raw : []).map(mapTable);
+    },
   });
 }
 
 export function useDynamicTable(id: string) {
   return useQuery({
     queryKey: dynamicKeys.table(id),
-    queryFn: () => get<DynamicTable>(`/dynamic-builder/tables/${id}`),
+    queryFn: async () => {
+      const raw = await get<any>(`/dynamic-builder/tables/${id}`);
+      return mapTable(raw);
+    },
     enabled: !!id,
   });
 }
