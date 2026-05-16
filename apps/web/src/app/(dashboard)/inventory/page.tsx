@@ -20,11 +20,148 @@ import {
   useLowStockItems,
   useValuationSummary,
   useRecordMovement,
+  useCreateItem,
   type Item,
   type StockMovement,
 } from '@/hooks/useInventory';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { notify } from '@/components/ui/Toast';
+
+// ─── Add Item modal ───────────────────────────────────────────────────────────
+interface AddItemModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function AddItemModal({ open, onClose }: AddItemModalProps) {
+  const createItem = useCreateItem();
+  const [form, setForm] = useState({
+    code: '',
+    name: '',
+    description: '',
+    category: '',
+    unit: '',
+    costMethod: 'FIFO' as 'FIFO' | 'LIFO' | 'AVERAGE' | 'SPECIFIC',
+    reorderPoint: '',
+    reorderQty: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.code || !form.name || !form.unit) {
+      notify.error('Code, Name, and Unit are required.');
+      return;
+    }
+    try {
+      await createItem.mutateAsync({
+        code: form.code,
+        name: form.name,
+        description: form.description || undefined,
+        category: form.category || undefined,
+        unit: form.unit,
+        costMethod: form.costMethod,
+        reorderPoint: form.reorderPoint ? Number(form.reorderPoint) : undefined,
+        reorderQty: form.reorderQty ? Number(form.reorderQty) : undefined,
+      });
+      notify.success('Item created successfully.');
+      onClose();
+      setForm({ code: '', name: '', description: '', category: '', unit: '', costMethod: 'FIFO', reorderPoint: '', reorderQty: '' });
+    } catch {
+      notify.error('Failed to create item.');
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Add Inventory Item"
+      size="md"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            form="add-item-form"
+            type="submit"
+            loading={createItem.isPending}
+          >
+            Create Item
+          </Button>
+        </>
+      }
+    >
+      <form id="add-item-form" onSubmit={handleSubmit} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Item Code"
+            required
+            value={form.code}
+            onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+            placeholder="e.g. SKU-001"
+          />
+          <Input
+            label="Item Name"
+            required
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Widget A"
+          />
+        </div>
+        <Textarea
+          label="Description"
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          placeholder="Optional description…"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Category"
+            value={form.category}
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+            placeholder="e.g. Raw Materials"
+          />
+          <Input
+            label="Unit"
+            required
+            value={form.unit}
+            onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+            placeholder="e.g. PCS, KG, L"
+          />
+        </div>
+        <Select
+          label="Cost Method"
+          required
+          value={form.costMethod}
+          onChange={(e) => setForm((f) => ({ ...f, costMethod: e.target.value as typeof form.costMethod }))}
+          options={[
+            { label: 'FIFO (First In, First Out)', value: 'FIFO' },
+            { label: 'LIFO (Last In, First Out)', value: 'LIFO' },
+            { label: 'Weighted Average', value: 'AVERAGE' },
+            { label: 'Specific Identification', value: 'SPECIFIC' },
+          ]}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Reorder Point"
+            type="number"
+            min="0"
+            value={form.reorderPoint}
+            onChange={(e) => setForm((f) => ({ ...f, reorderPoint: e.target.value }))}
+            placeholder="0"
+          />
+          <Input
+            label="Reorder Quantity"
+            type="number"
+            min="0"
+            value={form.reorderQty}
+            onChange={(e) => setForm((f) => ({ ...f, reorderQty: e.target.value }))}
+            placeholder="0"
+          />
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 // ─── Movement modal ───────────────────────────────────────────────────────────
 interface MovementModalProps {
@@ -229,6 +366,7 @@ const itemColumns: ColumnDef<Item, unknown>[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function InventoryPage() {
   const [showMovement, setShowMovement] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
 
   const { data: itemsData, isLoading: itemsLoading } = useItems({
@@ -268,7 +406,7 @@ export default function InventoryPage() {
           >
             Record Movement
           </Button>
-          <Button size="sm" leftIcon={<PlusIcon className="h-4 w-4" />}>
+          <Button size="sm" leftIcon={<PlusIcon className="h-4 w-4" />} onClick={() => setShowAddItem(true)}>
             Add Item
           </Button>
         </div>
@@ -332,10 +470,16 @@ export default function InventoryPage() {
         emptyDescription="Add your first item to get started."
         searchPlaceholder="Search items…"
         toolbar={
-          <Button size="sm" variant="secondary" leftIcon={<PlusIcon className="h-4 w-4" />}>
+          <Button size="sm" variant="secondary" leftIcon={<PlusIcon className="h-4 w-4" />} onClick={() => setShowAddItem(true)}>
             Add Item
           </Button>
         }
+      />
+
+      {/* Add Item modal */}
+      <AddItemModal
+        open={showAddItem}
+        onClose={() => setShowAddItem(false)}
       />
 
       {/* Movement modal */}
