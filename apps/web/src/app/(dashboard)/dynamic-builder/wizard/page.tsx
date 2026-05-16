@@ -45,6 +45,7 @@ import {
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import { useAllTablesGrouped, TableDefinition, useSystemScreens } from '@/hooks/useAllTables'
 import { useCreateScreen, useValidationRules, useApprovalRules } from '@/hooks/useDynamicPlatform'
+import { post } from '@/lib/api'
 import DetailTableEntryGrid from '@/components/platform/DetailTableEntryGrid'
 
 interface Tab {
@@ -407,8 +408,9 @@ export default function ScreenCreationWizard() {
   const handleCreate = async () => {
     try {
       const primaryTable = allTables?.find((t: TableDefinition) => t.id === headerTables[0])
+      const tableName = primaryTable?.name || screenName
       await createScreen({
-        tableName: primaryTable?.name || screenName,
+        tableName,
         headerTables,
         detailTables,
         screenName,
@@ -424,6 +426,27 @@ export default function ScreenCreationWizard() {
         addToSidebar,
         initialData,
       })
+
+      // Create real impact rules via the Impact Rules API
+      if (impactRules.length > 0) {
+        for (const rule of impactRules) {
+          try {
+            await post('/dynamic-builder/impact-rules', {
+              tableName,
+              ruleName: rule.description || `${rule.impactType} on ${rule.triggerStatus}`,
+              description: rule.description,
+              triggerStatus: rule.triggerStatus,
+              impactType: rule.impactType,
+              config: { ...rule.config, targetTable: rule.targetTable },
+              isActive: true,
+              priority: 1,
+            })
+          } catch (e) {
+            console.error('Failed to create impact rule:', e)
+          }
+        }
+      }
+
       notify.success('Screen created successfully!')
       router.push('/dynamic-builder')
     } catch (error: any) {
