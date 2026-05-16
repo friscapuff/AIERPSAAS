@@ -9,7 +9,7 @@ export const databaseConfig = registerAs('database', () => ({
   database: process.env.DB_NAME || process.env.DB_DATABASE || 'aierp',
   synchronize: process.env.NODE_ENV !== 'production',
   migrationsRun: false,
-  logging: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  logging: ['query', 'error', 'warn', 'schema'],
   logger: 'advanced-console',
   ssl: process.env.NODE_ENV === 'production'
     ? { rejectUnauthorized: true }
