@@ -107,7 +107,9 @@ export class DynamicBuilderService {
 
     if (!table) throw new NotFoundException(`Table "${tableName}" not found`);
 
-    if (dto.displayName) table.display_name = dto.displayName;
+    // Accept both 'displayName' (DTO) and 'label' (frontend sends this)
+    const newDisplayName = dto.displayName || (dto as any).label;
+    if (newDisplayName) table.display_name = newDisplayName;
     if (dto.description !== undefined) table.description = dto.description;
 
     if (dto.fields) {
