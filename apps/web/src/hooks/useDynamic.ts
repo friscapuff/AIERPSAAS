@@ -13,10 +13,30 @@ export type FieldType =
   | 'SELECT'
   | 'MULTI_SELECT'
   | 'RELATION'
+  | 'LOOKUP'
   | 'FILE'
   | 'EMAIL'
   | 'URL'
   | 'PHONE';
+
+// Backend stores some types differently (e.g. NUMBER→INTEGER, TEXT→STRING)
+// This maps backend-stored types back to frontend-friendly types
+const BACKEND_TO_FRONTEND_TYPE: Record<string, FieldType> = {
+  INTEGER: 'NUMBER',
+  STRING: 'TEXT',
+  RELATION: 'LOOKUP',
+};
+
+// Frontend types that map to different backend types when saving
+const FRONTEND_TO_BACKEND_TYPE: Record<string, string> = {
+  NUMBER: 'NUMBER',  // Backend will normalize to INTEGER
+  LOOKUP: 'LOOKUP',
+};
+
+function normalizeTypeForDisplay(backendType: string): FieldType {
+  const upper = (backendType || 'TEXT').toUpperCase();
+  return (BACKEND_TO_FRONTEND_TYPE[upper] || upper) as FieldType;
+}
 
 export interface FieldDefinition {
   id: string;
@@ -28,7 +48,9 @@ export interface FieldDefinition {
   indexed: boolean;
   defaultValue?: unknown;
   options?: string[]; // for SELECT/MULTI_SELECT
-  relationTableId?: string; // for RELATION
+  relationTableId?: string; // for RELATION/LOOKUP
+  lookupTable?: string;
+  lookupField?: string;
   order: number;
 }
 
@@ -52,20 +74,23 @@ export interface DynamicRecord {
   updatedAt: string;
 }
 
-// ─── API → Frontend mappers ───────────────────────────────────────────────────
+// ─── API → Frontend mappers ──────────────────────────��────────────────────────
 // The API returns snake_case entity shape; the frontend uses camelCase.
 function mapField(raw: any, index: number): FieldDefinition {
+  const rawType = raw.type || raw.data_type || 'TEXT';
   return {
     id: raw.id || raw.name || `field_${index}`,
     name: raw.name,
     label: raw.label || raw.display_name || raw.name,
-    type: raw.type || raw.data_type || 'TEXT',
+    type: normalizeTypeForDisplay(rawType),
     required: raw.required ?? raw.is_required ?? false,
     unique: raw.unique ?? raw.is_unique ?? false,
     indexed: raw.indexed ?? false,
     defaultValue: raw.defaultValue ?? raw.default ?? raw.default_value,
     options: raw.options,
     relationTableId: raw.relationTableId ?? raw.lookup_table ?? raw.lookupTable,
+    lookupTable: raw.lookup_table ?? raw.lookupTable,
+    lookupField: raw.lookup_field ?? raw.lookupField,
     order: raw.order ?? index,
   };
 }
@@ -144,6 +169,7 @@ export function useUpdateTable() {
     mutationFn: ({ id, ...data }: { id: string } & Partial<CreateTableInput>) =>
       put<DynamicTable>(`/dynamic-builder/tables/${id}`, data),
     onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: dynamicKeys.all });
       queryClient.invalidateQueries({ queryKey: dynamicKeys.tables() });
       queryClient.invalidateQueries({ queryKey: dynamicKeys.table(vars.id) });
     },
@@ -155,12 +181,13 @@ export function useDeleteTable() {
   return useMutation({
     mutationFn: (id: string) => del<void>(`/dynamic-builder/tables/${id}`),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dynamicKeys.all });
       queryClient.invalidateQueries({ queryKey: dynamicKeys.tables() });
     },
   });
 }
 
-// ─── Records ─────────────────────────────────────────────────────────────────
+// ─── Records ─────────────────────────────���───────────────────────────���───────
 export interface RecordFilters {
   page?: number;
   limit?: number;
