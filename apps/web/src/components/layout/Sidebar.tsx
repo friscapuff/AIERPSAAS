@@ -16,6 +16,10 @@ import {
   ShieldCheckIcon,
   ShoppingCartIcon,
   TruckIcon,
+  ComputerDesktopIcon,
+  CheckBadgeIcon,
+  ClipboardDocumentCheckIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeSolidIcon,
@@ -28,11 +32,15 @@ import {
   LinkIcon as LinkSolidIcon,
   ShoppingCartIcon as ShoppingCartSolidIcon,
   TruckIcon as TruckSolidIcon,
+  ComputerDesktopIcon as ComputerDesktopSolidIcon,
+  CheckBadgeIcon as CheckBadgeSolidIcon,
+  ClipboardDocumentCheckIcon as ClipboardDocumentCheckSolidIcon,
+  BoltIcon as BoltSolidIcon,
 } from '@heroicons/react/24/solid';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 
-// ─── Navigation definition ─────────────────────────────────���──────────────────
+// ─── Navigation definition ───────────────────────────────────────────────────
 interface NavItem {
   label: string;
   href: string;
@@ -73,6 +81,10 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Platform',
     items: [
       { label: 'Dynamic Builder', href: '/dynamic-builder', icon: TableCellsIcon, iconActive: TableCellsSolidIcon },
+      { label: 'Screen Builder', href: '/dynamic-builder/screens', icon: ComputerDesktopIcon, iconActive: ComputerDesktopSolidIcon },
+      { label: 'Approval Rules', href: '/dynamic-builder/approvals', icon: CheckBadgeIcon, iconActive: CheckBadgeSolidIcon },
+      { label: 'Validation Rules', href: '/dynamic-builder/validations', icon: ClipboardDocumentCheckIcon, iconActive: ClipboardDocumentCheckSolidIcon },
+      { label: 'Impact Rules', href: '/dynamic-builder/impact-rules', icon: BoltIcon, iconActive: BoltSolidIcon },
       { label: 'Webhooks', href: '/settings#webhooks', icon: LinkIcon, iconActive: LinkSolidIcon },
       { label: 'Audit Log', href: '/settings#audit', icon: ShieldCheckIcon, iconActive: ShieldCheckIcon },
     ],
@@ -127,7 +139,7 @@ function NavItemComponent({ item, collapsed }: NavItemComponentProps) {
   );
 }
 
-// ─── Sidebar ─────────────────────────────────────────────────────────��────────
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 interface SidebarProps {
   collapsed: boolean;
 }
