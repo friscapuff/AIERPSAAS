@@ -16,6 +16,12 @@ export class UpdateTableDto {
   @MaxLength(255)
   displayName?: string;
 
+  @ApiPropertyOptional({ description: 'Updated display name (alias for displayName, used by frontend)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  label?: string;
+
   @ApiPropertyOptional({ description: 'Updated table description' })
   @IsOptional()
   @IsString()
