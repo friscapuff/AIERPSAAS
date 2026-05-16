@@ -8,6 +8,7 @@ import {
   ChevronDownIcon,
   LockClosedIcon,
   LockOpenIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,18 +16,147 @@ import { StatusBadge } from '@/components/ui/Badge';
 import { DataTable, ColumnDef } from '@/components/ui/DataTable';
 import {
   useAccountTree,
+  useAccounts,
+  useCreateAccount,
   useJournalEntries,
   usePeriods,
   useClosePeriod,
   type Account,
   type JournalEntry,
   type JournalEntryFilters,
+  type CreateAccountInput,
 } from '@/hooks/useFinance';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { notify } from '@/components/ui/Toast';
 
 type Tab = 'coa' | 'journal' | 'periods';
 
+// ─── Add Account Modal ─────────────────���──────────────────────────────────────
+function AddAccountModal({
+  open,
+  onClose,
+  accounts,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accounts?: Account[];
+}) {
+  const createAccount = useCreateAccount();
+  const [form, setForm] = useState<CreateAccountInput>({
+    code: '',
+    name: '',
+    type: 'ASSET',
+    description: '',
+    parentId: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.code || !form.name) {
+      notify.error('Code and Name are required.');
+      return;
+    }
+    try {
+      await createAccount.mutateAsync({
+        ...form,
+        parentId: form.parentId || undefined,
+      });
+      notify.success(`Account "${form.code} - ${form.name}" created successfully.`);
+      setForm({ code: '', name: '', type: 'ASSET', description: '', parentId: '' });
+      onClose();
+    } catch (err: any) {
+      notify.error(err?.message || 'Failed to create account.');
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
+          <h2 className="text-lg font-semibold text-surface-900">Add Account</h2>
+          <button onClick={onClose} className="text-surface-400 hover:text-surface-600">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Account Code *</label>
+              <input
+                type="text"
+                placeholder="e.g. 1100"
+                value={form.code}
+                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Account Type *</label>
+              <select
+                value={form.type}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CreateAccountInput['type'] }))}
+                className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="ASSET">Asset</option>
+                <option value="LIABILITY">Liability</option>
+                <option value="EQUITY">Equity</option>
+                <option value="REVENUE">Revenue</option>
+                <option value="EXPENSE">Expense</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-700 mb-1">Account Name *</label>
+            <input
+              type="text"
+              placeholder="e.g. Cash in Bank"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-700 mb-1">Parent Account (optional)</label>
+            <select
+              value={form.parentId}
+              onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">— None (Top-level) —</option>
+              {accounts?.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.code} - {acc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-700 mb-1">Description</label>
+            <textarea
+              rows={2}
+              placeholder="Optional description..."
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={createAccount.isPending}>
+              Create Account
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Account Tree Node ────────────���───────────────────────────���───────────────
 function AccountNode({ account, depth = 0 }: { account: Account; depth?: number }) {
   const [open, setOpen] = useState(depth < 1);
   const hasChildren = (account.children?.length ?? 0) > 0;
@@ -76,6 +206,7 @@ function AccountNode({ account, depth = 0 }: { account: Account; depth?: number 
   );
 }
 
+// ─── Journal Columns ───────────────────���─────────────────────────��────────────
 const journalColumns: ColumnDef<JournalEntry, unknown>[] = [
   {
     accessorKey: 'reference',
@@ -115,11 +246,14 @@ const journalColumns: ColumnDef<JournalEntry, unknown>[] = [
   },
 ];
 
+// ─── Main Page ──────────────────���─────────────────────────────────────────────
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<Tab>('journal');
   const [entryFilters, setEntryFilters] = useState<JournalEntryFilters>({ page: 1, limit: 20 });
+  const [showAddAccount, setShowAddAccount] = useState(false);
 
   const { data: coaTree, isLoading: coaLoading } = useAccountTree();
+  const { data: flatAccounts } = useAccounts();
   const { data: entriesData, isLoading: entriesLoading } = useJournalEntries(entryFilters);
   const { data: periods, isLoading: periodsLoading } = usePeriods();
   const closePeriod = useClosePeriod();
@@ -176,7 +310,12 @@ export default function FinancePage() {
               <h2 className="text-sm font-semibold text-surface-900">Chart of Accounts</h2>
               <p className="text-xs text-surface-500 mt-0.5">Hierarchical account structure</p>
             </div>
-            <Button variant="secondary" size="sm" leftIcon={<PlusIcon className="h-4 w-4" />}>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => setShowAddAccount(true)}
+            >
               Add Account
             </Button>
           </div>
@@ -287,6 +426,13 @@ export default function FinancePage() {
           )}
         </div>
       )}
+
+      {/* Add Account Modal */}
+      <AddAccountModal
+        open={showAddAccount}
+        onClose={() => setShowAddAccount(false)}
+        accounts={flatAccounts}
+      />
     </div>
   );
 }
