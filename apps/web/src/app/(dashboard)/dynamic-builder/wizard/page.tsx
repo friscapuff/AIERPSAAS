@@ -406,7 +406,9 @@ export default function ScreenCreationWizard() {
   // Create screen
   const handleCreate = async () => {
     try {
+      const primaryTable = allTables?.find((t: TableDefinition) => t.id === headerTables[0])
       await createScreen({
+        tableName: primaryTable?.name || screenName,
         headerTables,
         detailTables,
         screenName,
