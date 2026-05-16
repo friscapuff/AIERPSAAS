@@ -20,6 +20,8 @@ import {
   useDeleteTable,
   useUpdateTable,
   useCreateRecord,
+  useDeleteRecord,
+  useUpdateRecord,
   type DynamicTable,
   type FieldDefinition,
   type FieldType,
@@ -39,11 +41,25 @@ const FIELD_TYPES: { label: string; value: FieldType }[] = [
   { label: 'Date & Time', value: 'DATETIME' },
   { label: 'Select', value: 'SELECT' },
   { label: 'Multi-Select', value: 'MULTI_SELECT' },
+  { label: 'Lookup', value: 'LOOKUP' },
   { label: 'Email', value: 'EMAIL' },
   { label: 'URL', value: 'URL' },
   { label: 'Phone', value: 'PHONE' },
   { label: 'File', value: 'FILE' },
 ];
+
+// Ensure any backend-returned type can be found in the dropdown
+function ensureValidFieldType(type: string): FieldType {
+  const found = FIELD_TYPES.find((ft) => ft.value === type);
+  if (found) return found.value;
+  // Fallback mappings for backend-stored types
+  const fallbackMap: Record<string, FieldType> = {
+    INTEGER: 'NUMBER',
+    STRING: 'TEXT',
+    RELATION: 'LOOKUP',
+  };
+  return fallbackMap[type] || 'TEXT';
+}
 
 const TYPE_ICONS: Partial<Record<FieldType, string>> = {
   TEXT: 'Aa',
@@ -52,6 +68,8 @@ const TYPE_ICONS: Partial<Record<FieldType, string>> = {
   BOOLEAN: '✓',
   DATE: '📅',
   SELECT: '▾',
+  LOOKUP: '🔗',
+  FILE: '📎',
 };
 
 // ─── Create Table Wizard ─────────────────────────────────────────────────────
@@ -109,9 +127,11 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
       setStep(1);
       setTableName('');
       setTableLabel('');
+      setTableDesc('');
       setFields([{ name: 'name', label: 'Name', type: 'TEXT', required: true }]);
-    } catch {
-      notify.error('Failed to create table.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to create table.';
+      notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
@@ -177,7 +197,7 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
             </Button>
           </div>
           {fields.map((field, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end p-3 bg-surface-50 rounded-lg border border-surface-200">
+            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-end p-3 bg-surface-50 rounded-lg border border-surface-200">
               <Input
                 label="Field Name"
                 value={field.name}
@@ -199,10 +219,19 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
                 options={FIELD_TYPES}
                 size="sm"
               />
+              <label className="flex items-center gap-1 text-xs text-surface-500 mb-0.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={field.required}
+                  onChange={(e) => updateField(i, 'required', e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-surface-300"
+                />
+                Req
+              </label>
               <button
                 type="button"
-                onClick={() => i > 0 && removeField(i)}
-                disabled={i === 0}
+                onClick={() => removeField(i)}
+                disabled={fields.length <= 1}
                 className="p-1.5 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 disabled:opacity-30 mb-0.5"
               >
                 <TrashIcon className="h-4 w-4" />
@@ -227,6 +256,7 @@ function EditTableModal({
   const [tableLabel, setTableLabel] = useState('');
   const [tableDesc, setTableDesc] = useState('');
   const [fields, setFields] = useState<NewField[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (table) {
@@ -236,20 +266,30 @@ function EditTableModal({
         table.fields.map((f) => ({
           name: f.name,
           label: f.label,
-          type: f.type,
+          type: ensureValidFieldType(f.type),
           required: f.required ?? false,
         }))
       );
+      setHasChanges(false);
     }
   }, [table]);
 
-  const addField = () =>
+  const markChanged = () => setHasChanges(true);
+
+  const addField = () => {
     setFields((f) => [...f, { name: '', label: '', type: 'TEXT', required: false }]);
+    markChanged();
+  };
 
-  const removeField = (i: number) => setFields((f) => f.filter((_, idx) => idx !== i));
+  const removeField = (i: number) => {
+    setFields((f) => f.filter((_, idx) => idx !== i));
+    markChanged();
+  };
 
-  const updateField = (i: number, key: keyof NewField, val: string | boolean) =>
+  const updateField = (i: number, key: keyof NewField, val: string | boolean) => {
     setFields((f) => f.map((field, idx) => (idx === i ? { ...field, [key]: val } : field)));
+    markChanged();
+  };
 
   const handleSave = async () => {
     if (!table) return;
@@ -257,10 +297,24 @@ function EditTableModal({
       notify.error('Table label is required.');
       return;
     }
+    if (fields.length === 0) {
+      notify.error('Table must have at least one field.');
+      return;
+    }
     if (fields.some((f) => !f.name || !f.label)) {
       notify.error('All fields must have a name and label.');
       return;
     }
+    // Check for duplicate field names
+    const fieldNames = new Set<string>();
+    for (const f of fields) {
+      if (fieldNames.has(f.name)) {
+        notify.error(`Duplicate field name: "${f.name}". Each field must have a unique name.`);
+        return;
+      }
+      fieldNames.add(f.name);
+    }
+
     try {
       await updateTable.mutateAsync({
         id: table.name,
@@ -277,9 +331,24 @@ function EditTableModal({
         })),
       });
       notify.success(`Table "${tableLabel}" updated successfully.`);
+      setHasChanges(false);
       onClose();
-    } catch {
-      notify.error('Failed to update table.');
+    } catch (err: any) {
+      // Show detailed error from backend validation
+      const errorData = err?.response?.data;
+      let msg = 'Failed to update table.';
+      if (errorData) {
+        if (Array.isArray(errorData.message)) {
+          msg = errorData.message.join(', ');
+        } else if (typeof errorData.message === 'string') {
+          msg = errorData.message;
+        } else if (errorData.errors) {
+          msg = errorData.errors.map((e: any) => `${e.field}: ${e.message}`).join('; ');
+        }
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      notify.error(msg);
     }
   };
 
@@ -288,12 +357,12 @@ function EditTableModal({
       open={!!table}
       onClose={onClose}
       title="Edit Table"
-      description="Update table metadata and fields"
+      description={`Update "${table?.label || ''}" — metadata and fields`}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} loading={updateTable.isPending}>
+          <Button onClick={handleSave} loading={updateTable.isPending} disabled={!hasChanges}>
             Save Changes
           </Button>
         </>
@@ -304,7 +373,7 @@ function EditTableModal({
           <Input
             label="Display Label"
             value={tableLabel}
-            onChange={(e) => setTableLabel(e.target.value)}
+            onChange={(e) => { setTableLabel(e.target.value); markChanged(); }}
             placeholder="Customer Contacts"
             required
           />
@@ -318,7 +387,7 @@ function EditTableModal({
         <Textarea
           label="Description"
           value={tableDesc}
-          onChange={(e) => setTableDesc(e.target.value)}
+          onChange={(e) => { setTableDesc(e.target.value); markChanged(); }}
           placeholder="What is this table for?"
         />
 
@@ -330,7 +399,7 @@ function EditTableModal({
             </Button>
           </div>
           {fields.map((field, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end p-3 bg-surface-50 rounded-lg border border-surface-200">
+            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-end p-3 bg-surface-50 rounded-lg border border-surface-200">
               <Input
                 label="Field Name"
                 value={field.name}
@@ -352,10 +421,20 @@ function EditTableModal({
                 options={FIELD_TYPES}
                 size="sm"
               />
+              <label className="flex items-center gap-1 text-xs text-surface-500 mb-0.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={field.required}
+                  onChange={(e) => updateField(i, 'required', e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-surface-300"
+                />
+                Req
+              </label>
               <button
                 type="button"
                 onClick={() => removeField(i)}
-                className="p-1.5 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 mb-0.5"
+                disabled={fields.length <= 1}
+                className="p-1.5 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 disabled:opacity-30 mb-0.5"
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
@@ -370,6 +449,19 @@ function EditTableModal({
 // ─── Table data view ─────────────────────────────────────────────────────────
 function TableDataView({ table }: { table: DynamicTable }) {
   const { data: recordsData, isLoading } = useDynamicRecords(table.name);
+  const deleteRecord = useDeleteRecord();
+  const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
+
+  const handleDeleteRecord = async () => {
+    if (!deleteRecordId) return;
+    try {
+      await deleteRecord.mutateAsync({ tableId: table.name, recordId: deleteRecordId });
+      notify.success('Record deleted.');
+      setDeleteRecordId(null);
+    } catch (err: any) {
+      notify.error(err?.message || 'Failed to delete record.');
+    }
+  };
 
   const columns: ColumnDef<DynamicRecord, unknown>[] = [
     {
@@ -394,16 +486,40 @@ function TableDataView({ table }: { table: DynamicTable }) {
         <span className="text-xs text-surface-400">{formatDate(String(getValue()))}</span>
       ),
     },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); setDeleteRecordId(row.original.id); }}
+          className="p-1 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      ),
+      size: 50,
+    },
   ];
 
   return (
-    <DataTable
-      data={recordsData?.data ?? []}
-      columns={columns}
-      loading={isLoading}
-      emptyMessage={`No records in "${table.label}"`}
-      emptyDescription="Create your first record using the form above."
-    />
+    <>
+      <DataTable
+        data={recordsData?.data ?? []}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage={`No records in "${table.label}"`}
+        emptyDescription="Create your first record using the form above."
+      />
+      <ConfirmModal
+        open={!!deleteRecordId}
+        onClose={() => setDeleteRecordId(null)}
+        onConfirm={handleDeleteRecord}
+        title="Delete Record"
+        message="Are you sure you want to delete this record? This action cannot be undone."
+        confirmLabel="Delete Record"
+        loading={deleteRecord.isPending}
+      />
+    </>
   );
 }
 
@@ -414,7 +530,7 @@ export default function DynamicBuilderTablesPage() {
   const [deleteTable, setDeleteTable] = useState<DynamicTable | null>(null);
   const [editTable, setEditTable] = useState<DynamicTable | null>(null);
 
-  const { data: tables, isLoading } = useDynamicTables();
+  const { data: tables, isLoading, refetch } = useDynamicTables();
   const deleteTableMutation = useDeleteTable();
 
   const handleDelete = async () => {
@@ -424,8 +540,9 @@ export default function DynamicBuilderTablesPage() {
       notify.success(`Table "${deleteTable.label}" deleted.`);
       if (selectedTable?.id === deleteTable.id) setSelectedTable(null);
       setDeleteTable(null);
-    } catch {
-      notify.error('Failed to delete table.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete table.';
+      notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
@@ -450,6 +567,13 @@ export default function DynamicBuilderTablesPage() {
             </button>
             <ChevronRightIcon className="h-3.5 w-3.5 text-surface-400" />
             <span className="text-sm font-medium text-surface-900">{selectedTable.label}</span>
+            <button
+              onClick={() => setEditTable(selectedTable)}
+              className="ml-2 p-1 rounded text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+              title="Edit table"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
           </div>
 
           <Card padding="md">
@@ -468,6 +592,7 @@ export default function DynamicBuilderTablesPage() {
                     {TYPE_ICONS[field.type] ?? (field.type || '').slice(0, 3)}
                   </span>
                   <span className="text-xs font-medium text-surface-700">{field.label}</span>
+                  <span className="text-[10px] text-surface-400 ml-0.5">({field.type})</span>
                   {field.required && <span className="text-danger-400 text-xs">*</span>}
                 </div>
               ))}
@@ -511,6 +636,7 @@ export default function DynamicBuilderTablesPage() {
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditTable(table); }}
                     className="p-1 rounded text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                    title="Edit table"
                   >
                     <PencilSquareIcon className="h-4 w-4" />
                   </button>
@@ -518,6 +644,7 @@ export default function DynamicBuilderTablesPage() {
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeleteTable(table); }}
                       className="p-1 rounded text-surface-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+                      title="Delete table"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </button>
@@ -546,7 +673,7 @@ export default function DynamicBuilderTablesPage() {
 
       {/* Modals */}
       <CreateTableModal open={showCreate} onClose={() => setShowCreate(false)} />
-      <EditTableModal table={editTable} onClose={() => setEditTable(null)} />
+      <EditTableModal table={editTable} onClose={() => { setEditTable(null); refetch(); }} />
       <ConfirmModal
         open={!!deleteTable}
         onClose={() => setDeleteTable(null)}
