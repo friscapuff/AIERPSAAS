@@ -46,6 +46,9 @@ export class ChartOfAccounts {
   @Column('text', { nullable: true })
   description: string;
 
+  @Column('varchar', { length: 3, default: 'JOD' })
+  currency: string;
+
   @Column('boolean', { default: true })
   is_active: boolean;
 

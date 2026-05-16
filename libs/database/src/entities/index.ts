@@ -24,6 +24,9 @@ export * from './sales-order-line.entity';
 export * from './purchase-order.entity';
 export * from './purchase-order-line.entity';
 export * from './screen-definition.entity';
-export * from './approval-rule.entity';
+// Note: approval-rule.entity exports ApprovalLevel which conflicts with workflow.entity
+// Use explicit re-exports to avoid the ambiguity
+export { ApprovalRule, ApprovalCondition } from './approval-rule.entity';
+export { ApprovalLevel as ApprovalRuleLevel } from './approval-rule.entity';
 export * from './validation-rule.entity';
 export * from './impact-rule.entity';

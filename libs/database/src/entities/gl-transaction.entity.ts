@@ -37,6 +37,9 @@ export class GLTransaction {
   @Column('varchar', { length: 3, default: 'JOD' })
   currency: string;
 
+  @Column('numeric', { precision: 12, scale: 6, default: 1 })
+  exchange_rate: number;
+
   @Column({ nullable: true })
   description: string;
 

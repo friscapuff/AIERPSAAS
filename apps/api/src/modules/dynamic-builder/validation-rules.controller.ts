@@ -46,7 +46,7 @@ export class ValidationRulesController {
 
   @Post('validate/:tableName')
   @ApiOperation({ summary: 'Validate record data against all active rules for a table' })
-  async validate(@CurrentTenant() tenantId: string, @Param('tableName') tableName: string, @Body() body: { data: Record<string, any>; isUpdate?: boolean }) {
+  async validate(@CurrentTenant() tenantId: string, @Param('tableName') tableName: string, @Body() body: { data: Record<string, any>; isUpdate?: boolean }): Promise<any> {
     return this.service.validateRecord(tenantId, tableName, body.data, body.isUpdate ?? false);
   }
 }
