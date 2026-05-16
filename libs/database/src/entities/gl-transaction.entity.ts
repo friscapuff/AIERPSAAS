@@ -38,7 +38,7 @@ export class GLTransaction {
   currency: string;
 
   @Column('numeric', { precision: 12, scale: 6, default: 1 })
-  exchange_rate: number;
+  exchange_rate: string;
 
   @Column({ nullable: true })
   description: string;

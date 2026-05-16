@@ -22,7 +22,6 @@ export class FinanceService {
       where: { tenant_id: tenantId },
       order: { code: 'ASC' },
     });
-    // Map to frontend-expected camelCase format
     return accounts.map((acct) => ({
       id: acct.id,
       code: acct.code,
@@ -30,7 +29,7 @@ export class FinanceService {
       type: acct.account_type?.toUpperCase() || 'ASSET',
       parentId: acct.parent_id || undefined,
       currency: acct.currency || 'JOD',
-      balance: 0, // computed from GL — will be populated below
+      balance: 0,
       isActive: acct.is_active,
       level: acct.level || 0,
     }));
@@ -42,7 +41,6 @@ export class FinanceService {
       order: { code: 'ASC' },
     });
 
-    // Get all GL balances for this tenant
     const balances = await this.glTransactionRepository
       .createQueryBuilder('gl')
       .select('gl.account_id', 'account_id')
@@ -57,7 +55,6 @@ export class FinanceService {
       balanceMap.set(b.account_id, parseFloat(b.total_debit) - parseFloat(b.total_credit));
     }
 
-    // Build tree from flat list
     const map = new Map<string, any>();
     const roots: any[] = [];
 
@@ -88,7 +85,6 @@ export class FinanceService {
   }
 
   async createCOA(dto: any, tenantId: string): Promise<any> {
-    // Check code uniqueness
     const existing = await this.coaRepository.findOne({
       where: { tenant_id: tenantId, code: dto.account_code || dto.code },
     });
@@ -108,7 +104,6 @@ export class FinanceService {
     });
     const saved = await this.coaRepository.save(account);
 
-    // Return in frontend format
     return {
       id: saved.id,
       code: saved.code,
@@ -164,14 +159,12 @@ export class FinanceService {
   }
 
   async deleteCOA(id: string, tenantId: string): Promise<void> {
-    // Check if there are GL transactions referencing this account
     const txCount = await this.glTransactionRepository.count({
       where: { tenant_id: tenantId, account_id: id },
     });
     if (txCount > 0) {
       throw new BadRequestException('Cannot delete account with existing transactions. Deactivate it instead.');
     }
-    // Check for child accounts
     const childCount = await this.coaRepository.count({
       where: { tenant_id: tenantId, parent_id: id },
     });
@@ -246,19 +239,6 @@ export class FinanceService {
   // ─── Journal Entries ──────────────────────────────────────────────────
 
   async getJournalEntries(tenantId: string, periodId?: string, accountId?: string): Promise<any> {
-    // Journal entries are grouped by journal_id in gl_transactions
-    let query = this.glTransactionRepository
-      .createQueryBuilder('gl')
-      .where('gl.tenant_id = :tenantId', { tenantId });
-
-    if (periodId) {
-      query = query.andWhere('gl.period_id = :periodId', { periodId });
-    }
-    if (accountId) {
-      query = query.andWhere('gl.account_id = :accountId', { accountId });
-    }
-
-    // Get distinct journal_ids with their summary
     const journalSummaries = await this.glTransactionRepository
       .createQueryBuilder('gl')
       .select('gl.journal_id', 'journal_id')
@@ -295,7 +275,6 @@ export class FinanceService {
   }
 
   async createJournalEntry(dto: any, tenantId: string): Promise<any> {
-    // Validate double-entry balance
     const lines = dto.lines || [];
     if (lines.length < 2) {
       throw new BadRequestException('Journal entry must have at least 2 lines');
@@ -311,7 +290,6 @@ export class FinanceService {
       throw new BadRequestException(`Journal entry does not balance: debits (${totalDebits}) must equal credits (${totalCredits})`);
     }
 
-    // Validate all account IDs exist
     for (const line of lines) {
       const accountId = line.account_id || line.accountId;
       const account = await this.coaRepository.findOne({
@@ -322,12 +300,10 @@ export class FinanceService {
       }
     }
 
-    // Generate a journal_id to group all lines
     const journalId = uuidv4();
     const postingDate = dto.transaction_date || dto.date || new Date();
     const description = dto.description || '';
 
-    // Save each line as a GL transaction
     const savedLines = [];
     for (const line of lines) {
       const accountId = line.account_id || line.accountId;
@@ -338,14 +314,14 @@ export class FinanceService {
         tenant_id: tenantId,
         journal_id: journalId,
         account_id: accountId,
-        debit,
-        credit,
+        debit: String(debit),
+        credit: String(credit),
         currency: dto.currency || 'JOD',
-        exchange_rate: 1,
+        exchange_rate: '1',
         posting_date: postingDate,
         period_id: dto.periodId || dto.period_id || null,
-        source_doc_type: 'DRAFT', // use source_doc_type as status field
-        source_doc_id: journalId, // self-reference for manual entries
+        source_doc_type: 'DRAFT',
+        source_doc_id: journalId,
         description: line.description || description,
         created_by: 'system',
       });
@@ -374,7 +350,6 @@ export class FinanceService {
   }
 
   async postJournalEntry(id: string, tenantId: string): Promise<any> {
-    // Find all GL lines for this journal
     const lines = await this.glTransactionRepository.find({
       where: { tenant_id: tenantId, journal_id: id },
     });
@@ -383,12 +358,10 @@ export class FinanceService {
       throw new NotFoundException(`Journal entry ${id} not found`);
     }
 
-    // Check if already posted
     if (lines[0].source_doc_type === 'POSTED') {
       throw new BadRequestException('Journal entry is already posted');
     }
 
-    // Update status to POSTED
     await this.glTransactionRepository.update(
       { tenant_id: tenantId, journal_id: id },
       { source_doc_type: 'POSTED' },
@@ -423,7 +396,6 @@ export class FinanceService {
       throw new BadRequestException('Journal entry is already voided');
     }
 
-    // Update status to CANCELLED
     await this.glTransactionRepository.update(
       { tenant_id: tenantId, journal_id: id },
       { source_doc_type: 'CANCELLED' },
@@ -480,7 +452,6 @@ export class FinanceService {
       .groupBy('gl.account_id')
       .getRawMany();
 
-    // Get account details
     const accounts = await this.coaRepository.find({ where: { tenant_id: tenantId } });
     const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
@@ -504,7 +475,6 @@ export class FinanceService {
   }
 
   async postDocument(documentData: any, tenantId: string): Promise<any> {
-    // Generic document posting — creates GL entries from an accounting template
     const journalId = uuidv4();
     const lines = documentData.lines || [];
 
@@ -513,10 +483,10 @@ export class FinanceService {
         tenant_id: tenantId,
         journal_id: journalId,
         account_id: line.accountId || line.account_id,
-        debit: Number(line.debit) || 0,
-        credit: Number(line.credit) || 0,
+        debit: String(Number(line.debit) || 0),
+        credit: String(Number(line.credit) || 0),
         currency: documentData.currency || 'JOD',
-        exchange_rate: 1,
+        exchange_rate: '1',
         posting_date: documentData.date || new Date(),
         period_id: documentData.periodId || null,
         source_doc_type: documentData.docType || 'POSTED',
