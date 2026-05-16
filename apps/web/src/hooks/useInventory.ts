@@ -169,7 +169,7 @@ export function useRecordMovement() {
   });
 }
 
-interface CreateItemInput {
+export interface CreateItemInput {
   code: string;
   name: string;
   description?: string;
@@ -183,7 +183,18 @@ interface CreateItemInput {
 export function useCreateItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateItemInput) => post<Item>('/inventory/items', data),
+    mutationFn: (data: CreateItemInput) =>
+      post<Item>('/inventory/items', {
+        // Map frontend field names to backend DTO field names
+        code: data.code,
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        unitOfMeasure: data.unit,
+        costingMethod: data.costMethod,
+        minStockLevel: data.reorderPoint,
+        maxStockLevel: data.reorderQty,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.items() });
     },
