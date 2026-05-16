@@ -182,22 +182,58 @@ export function useDeleteValidationRule() {
   });
 }
 
-// ─── Impact Rules ───────────────────────────────────────────────────────────
+// ─── Impact Rules (Multi-Impact Engine) ─────────────────────────────────────
+export type ImpactTypeValue =
+  | 'GL_POSTING'
+  | 'BUDGET_IMPACT'
+  | 'COST_UPDATE'
+  | 'COMMISSION_CALC'
+  | 'INTERCOMPANY'
+  | 'INVENTORY_MOVEMENT'
+  | 'STOCK_PLANNING'
+  | 'CRM_LOG'
+  | 'RECORD_CREATE'
+  | 'FIELD_UPDATE'
+  | 'NOTIFICATION'
+  | 'WEBHOOK'
+  | 'APPROVAL_TRIGGER'
+  | 'ANALYTICS_EVENT';
+
+export type ExecutionMode = 'SEQUENTIAL' | 'PARALLEL' | 'TRANSACTIONAL';
+
 export interface ImpactRuleType {
   id: string;
   tableName: string;
   ruleName: string;
   description?: string;
   triggerStatus: string;
-  impactType: 'GL_POSTING' | 'INVENTORY_MOVEMENT' | 'CRM_LOG' | 'RECORD_CREATE' | 'WEBHOOK' | 'FIELD_UPDATE';
+  impactType: ImpactTypeValue;
   config: any;
   isActive: boolean;
   priority: number;
+  // Multi-impact group fields
+  groupId?: string;
+  groupName?: string;
+  executionMode?: ExecutionMode;
+  conditionExpression?: any;
+  rollbackOnFailure?: boolean;
+}
+
+export interface ImpactGroup {
+  groupId: string;
+  groupName: string;
+  triggerStatus: string;
+  tableName: string;
+  executionMode: ExecutionMode;
+  rollbackOnFailure: boolean;
+  rules: ImpactRuleType[];
 }
 
 const IMPACT_KEYS = {
   all: ['impact-rules'] as const,
   list: (tableName?: string) => [...IMPACT_KEYS.all, 'list', tableName] as const,
+  grouped: () => [...IMPACT_KEYS.all, 'grouped'] as const,
+  types: () => [...IMPACT_KEYS.all, 'types'] as const,
 };
 
 export function useImpactRules(tableName?: string) {
@@ -208,10 +244,46 @@ export function useImpactRules(tableName?: string) {
   });
 }
 
+export function useImpactRulesGrouped() {
+  return useQuery<ImpactGroup[]>({
+    queryKey: IMPACT_KEYS.grouped(),
+    queryFn: () => get<ImpactGroup[]>('/dynamic-builder/impact-rules/groups'),
+  });
+}
+
+export function useImpactTypes() {
+  return useQuery<any[]>({
+    queryKey: IMPACT_KEYS.types(),
+    queryFn: () => get<any[]>('/dynamic-builder/impact-rules/types'),
+  });
+}
+
 export function useCreateImpactRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: any) => post('/dynamic-builder/impact-rules', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: IMPACT_KEYS.all }),
+  });
+}
+
+export function useCreateImpactRuleBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      tableName: string;
+      triggerStatus: string;
+      groupName: string;
+      executionMode: ExecutionMode;
+      rollbackOnFailure: boolean;
+      rules: Array<{
+        ruleName: string;
+        description?: string;
+        impactType: ImpactTypeValue;
+        config: any;
+        priority?: number;
+        conditionExpression?: any;
+      }>;
+    }) => post('/dynamic-builder/impact-rules/batch', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: IMPACT_KEYS.all }),
   });
 }
@@ -228,6 +300,14 @@ export function useDeleteImpactRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => del(`/dynamic-builder/impact-rules/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: IMPACT_KEYS.all }),
+  });
+}
+
+export function useDeleteImpactRuleGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => del(`/dynamic-builder/impact-rules/group/${groupId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: IMPACT_KEYS.all }),
   });
 }
