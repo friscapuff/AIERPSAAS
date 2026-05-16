@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PlusIcon,
   TrashIcon,
   PencilSquareIcon,
   CheckBadgeIcon,
+  XMarkIcon,
+  TableCellsIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +23,47 @@ import {
   type ValidationRuleType,
 } from '@/hooks/useDynamicPlatform';
 import { notify } from '@/components/ui/Toast';
+
+/* ─── FieldSelect: dropdown from selected tables + Add New ─── */
+function FieldSelect({ value, onChange, allFields, label }: { value: string; onChange: (v: string) => void; allFields: { value: string; label: string; table: string }[]; label?: string }) {
+  const [showNew, setShowNew] = useState(false);
+  const [newVal, setNewVal] = useState('');
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => { if (e.target.value === '__ADD_NEW__') setShowNew(true); else onChange(e.target.value); };
+  const handleAdd = () => { if (newVal.trim()) { onChange(newVal.trim()); setShowNew(false); setNewVal(''); } };
+  if (showNew) return (<div className="space-y-1">{label && <label className="block text-xs font-medium text-surface-700">{label}</label>}<div className="flex gap-1 items-center"><input value={newVal} onChange={(e) => setNewVal(e.target.value)} placeholder="field_name" className="flex-1 rounded-md border border-surface-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleAdd()} /><button onClick={handleAdd} className="px-2 py-1.5 bg-primary-600 text-white rounded text-xs font-medium hover:bg-primary-700">OK</button><button onClick={() => { setShowNew(false); setNewVal(''); }} className="px-2 py-1.5 bg-surface-200 text-surface-600 rounded text-xs hover:bg-surface-300">X</button></div></div>);
+  const grouped = allFields.reduce<Record<string, typeof allFields>>((acc, f) => { (acc[f.table] = acc[f.table] || []).push(f); return acc; }, {});
+  return (<div className="space-y-1">{label && <label className="block text-xs font-medium text-surface-700">{label}</label>}<select value={value} onChange={handleChange} className="w-full rounded-md border border-surface-300 px-2 py-1.5 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"><option value="">— Select Field —</option>{Object.entries(grouped).map(([t, fields]) => (<optgroup key={t} label={t}>{fields.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</optgroup>))}<option value="__ADD_NEW__">+ Add New Field</option></select></div>);
+}
+
+/* ─── MultiTableSelector ─── */
+function MultiTableSelector({ selectedTables, onAdd, onRemove, allTables }: { selectedTables: string[]; onAdd: (n: string) => void; onRemove: (n: string) => void; allTables: { name: string; label: string }[] }) {
+  const [addValue, setAddValue] = useState('');
+  const available = allTables.filter((t) => !selectedTables.includes(t.name));
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-semibold text-surface-700">Selected Tables *</label>
+      <div className="flex flex-wrap gap-2 min-h-[36px] p-2 border border-surface-200 rounded-lg bg-surface-50">
+        {selectedTables.length === 0 && <span className="text-xs text-surface-400 italic">No tables selected</span>}
+        {selectedTables.map((name) => { const tbl = allTables.find((t) => t.name === name); return (<span key={name} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium"><TableCellsIcon className="h-3.5 w-3.5" />{tbl?.label || name}<button onClick={() => onRemove(name)} className="hover:text-danger-600"><XMarkIcon className="h-3.5 w-3.5" /></button></span>); })}
+      </div>
+      <div className="flex gap-2 items-end">
+        <div className="flex-1"><select value={addValue} onChange={(e) => setAddValue(e.target.value)} className="w-full rounded-md border border-surface-300 px-2 py-1.5 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"><option value="">— Add a Table —</option>{available.map((t) => <option key={t.name} value={t.name}>{t.label}</option>)}</select></div>
+        <Button variant="secondary" size="xs" leftIcon={<PlusIcon className="h-3.5 w-3.5" />} onClick={() => { if (addValue) { onAdd(addValue); setAddValue(''); } }} disabled={!addValue}>Add Table</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── StatusSelect with Add New ─── */
+function StatusSelect({ value, onChange, label, placeholder, required, hint }: { value: string; onChange: (v: string) => void; label: string; placeholder?: string; required?: boolean; hint?: string }) {
+  const [showNew, setShowNew] = useState(false);
+  const [newVal, setNewVal] = useState('');
+  const statuses = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'POSTED', 'CANCELLED', 'ACTIVE', 'INACTIVE'];
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => { if (e.target.value === '__ADD_NEW__') setShowNew(true); else onChange(e.target.value); };
+  const handleAdd = () => { if (newVal.trim()) { onChange(newVal.trim().toUpperCase()); setShowNew(false); setNewVal(''); } };
+  if (showNew) return (<div className="space-y-1"><label className="block text-xs font-medium text-surface-700">{label}</label><div className="flex gap-1 items-center"><input value={newVal} onChange={(e) => setNewVal(e.target.value)} placeholder={placeholder} className="flex-1 rounded-md border border-surface-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleAdd()} /><button onClick={handleAdd} className="px-2 py-1.5 bg-primary-600 text-white rounded text-xs font-medium hover:bg-primary-700">OK</button><button onClick={() => { setShowNew(false); setNewVal(''); }} className="px-2 py-1.5 bg-surface-200 text-surface-600 rounded text-xs hover:bg-surface-300">X</button></div>{hint && <p className="text-2xs text-surface-400">{hint}</p>}</div>);
+  return (<div className="space-y-1"><label className="block text-xs font-medium text-surface-700">{label} {required && <span className="text-danger-500">*</span>}</label><select value={value} onChange={handleChange} className="w-full rounded-md border border-surface-300 px-2 py-1.5 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"><option value="">— Select Status —</option>{statuses.map((s) => <option key={s} value={s}>{s}</option>)}{value && !statuses.includes(value) && <option value={value}>{value}</option>}<option value="__ADD_NEW__">+ Add New Status</option></select>{hint && <p className="text-2xs text-surface-400">{hint}</p>}</div>);
+}
 
 const RULE_TYPES = [
   { label: 'Field Validation', value: 'FIELD' },
@@ -77,8 +120,9 @@ function ValidationRuleFormModal({
   const createRule = useCreateValidationRule();
   const updateRule = useUpdateValidationRule();
 
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
-    tableName: '',
     ruleName: '',
     description: '',
     ruleType: 'FIELD' as string,
@@ -93,10 +137,19 @@ function ValidationRuleFormModal({
   const [expressionConfig, setExpressionConfig] = useState({ expression: '', errorMessage: '' });
   const [uniqueComboConfig, setUniqueComboConfig] = useState({ fields: [''], errorMessage: '' });
 
+  const allFields = useMemo(() => {
+    if (!tables || selectedTables.length === 0) return [];
+    return selectedTables.flatMap((tName) => {
+      const tbl = tables.find((t) => t.name === tName);
+      if (!tbl || !tbl.fields) return [];
+      return tbl.fields.map((f: any) => ({ value: f.name, label: f.label || f.name, table: tbl.label || tbl.name }));
+    });
+  }, [tables, selectedTables]);
+
   useEffect(() => {
     if (rule) {
+      setSelectedTables(rule.tableName ? [rule.tableName] : []);
       setFormData({
-        tableName: rule.tableName,
         ruleName: rule.ruleName,
         description: rule.description || '',
         ruleType: rule.ruleType,
@@ -116,7 +169,8 @@ function ValidationRuleFormModal({
         setUniqueComboConfig({ fields: cfg.fields?.length ? cfg.fields : [''], errorMessage: cfg.errorMessage || '' });
       }
     } else {
-      setFormData({ tableName: '', ruleName: '', description: '', ruleType: 'FIELD', appliesOn: 'BOTH', isActive: true, priority: 0 });
+      setSelectedTables([]);
+      setFormData({ ruleName: '', description: '', ruleType: 'FIELD', appliesOn: 'BOTH', isActive: true, priority: 0 });
       setFieldConfig({ fieldName: '', operator: 'REQUIRED', value: '', errorMessage: '' });
       setCrossFieldConfig({ fieldName: '', operator: 'EQUALS', compareField: '', errorMessage: '' });
       setExpressionConfig({ expression: '', errorMessage: '' });
@@ -135,7 +189,8 @@ function ValidationRuleFormModal({
   };
 
   const handleSubmit = async () => {
-    if (!formData.tableName || !formData.ruleName) {
+    const tableName = selectedTables[0] || '';
+    if (!tableName || !formData.ruleName) {
       notify.error('Table and rule name are required.');
       return;
     }
@@ -146,8 +201,8 @@ function ValidationRuleFormModal({
     }
 
     const payload = {
-      table_name: formData.tableName,
-      tableName: formData.tableName,
+      table_name: tableName,
+      tableName: tableName,
       rule_name: formData.ruleName,
       ruleName: formData.ruleName,
       description: formData.description || null,
@@ -193,33 +248,34 @@ function ValidationRuleFormModal({
     >
       <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
         {/* Basic info */}
-        <div className="grid grid-cols-2 gap-3">
-          <Select
-            label="Table"
-            value={formData.tableName}
-            onChange={(e) => setFormData({ ...formData, tableName: e.target.value })}
-            options={[{ label: '— Select Table —', value: '' }, ...(tables?.map((t) => ({ label: t.label, value: t.name })) || [])]}
-            required
+        <div className="space-y-3">
+          <MultiTableSelector
+            selectedTables={selectedTables}
+            onAdd={(n) => setSelectedTables([...selectedTables, n])}
+            onRemove={(n) => setSelectedTables(selectedTables.filter((t) => t !== n))}
+            allTables={tables?.map((t) => ({ name: t.name, label: t.label })) || []}
           />
-          <Input
-            label="Rule Name"
-            value={formData.ruleName}
-            onChange={(e) => setFormData({ ...formData, ruleName: e.target.value })}
-            placeholder="Amount must be positive"
-            required
-          />
-          <Select
-            label="Rule Type"
-            value={formData.ruleType}
-            onChange={(e) => setFormData({ ...formData, ruleType: e.target.value })}
-            options={RULE_TYPES}
-          />
-          <Select
-            label="Applies On"
-            value={formData.appliesOn}
-            onChange={(e) => setFormData({ ...formData, appliesOn: e.target.value })}
-            options={APPLIES_ON}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Rule Name"
+              value={formData.ruleName}
+              onChange={(e) => setFormData({ ...formData, ruleName: e.target.value })}
+              placeholder="Amount must be positive"
+              required
+            />
+            <Select
+              label="Rule Type"
+              value={formData.ruleType}
+              onChange={(e) => setFormData({ ...formData, ruleType: e.target.value })}
+              options={RULE_TYPES}
+            />
+            <Select
+              label="Applies On"
+              value={formData.appliesOn}
+              onChange={(e) => setFormData({ ...formData, appliesOn: e.target.value })}
+              options={APPLIES_ON}
+            />
+          </div>
         </div>
 
         {/* Config — Field */}
@@ -227,12 +283,11 @@ function ValidationRuleFormModal({
           <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <h4 className="text-xs font-semibold text-blue-800">Field Validation Config</h4>
             <div className="grid grid-cols-2 gap-3">
-              <Input
+              <FieldSelect
                 label="Field Name"
                 value={fieldConfig.fieldName}
-                onChange={(e) => setFieldConfig({ ...fieldConfig, fieldName: e.target.value })}
-                placeholder="amount"
-                required
+                onChange={(v) => setFieldConfig({ ...fieldConfig, fieldName: v })}
+                allFields={allFields}
               />
               <Select
                 label="Operator"
@@ -265,12 +320,11 @@ function ValidationRuleFormModal({
           <div className="space-y-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
             <h4 className="text-xs font-semibold text-amber-800">Cross-Field Validation Config</h4>
             <div className="grid grid-cols-2 gap-3">
-              <Input
+              <FieldSelect
                 label="Field Name"
                 value={crossFieldConfig.fieldName}
-                onChange={(e) => setCrossFieldConfig({ ...crossFieldConfig, fieldName: e.target.value })}
-                placeholder="end_date"
-                required
+                onChange={(v) => setCrossFieldConfig({ ...crossFieldConfig, fieldName: v })}
+                allFields={allFields}
               />
               <Select
                 label="Operator"
@@ -278,12 +332,11 @@ function ValidationRuleFormModal({
                 onChange={(e) => setCrossFieldConfig({ ...crossFieldConfig, operator: e.target.value })}
                 options={CROSS_FIELD_OPERATORS}
               />
-              <Input
+              <FieldSelect
                 label="Compare Field"
                 value={crossFieldConfig.compareField}
-                onChange={(e) => setCrossFieldConfig({ ...crossFieldConfig, compareField: e.target.value })}
-                placeholder="start_date"
-                required
+                onChange={(v) => setCrossFieldConfig({ ...crossFieldConfig, compareField: v })}
+                allFields={allFields}
               />
               <Input
                 label="Error Message"
@@ -325,15 +378,14 @@ function ValidationRuleFormModal({
             <div className="space-y-2">
               {uniqueComboConfig.fields.map((field, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Input
+                  <FieldSelect
                     value={field}
-                    onChange={(e) => {
+                    onChange={(v) => {
                       const updated = [...uniqueComboConfig.fields];
-                      updated[i] = e.target.value;
+                      updated[i] = v;
                       setUniqueComboConfig({ ...uniqueComboConfig, fields: updated });
                     }}
-                    placeholder="field_name"
-                    size="sm"
+                    allFields={allFields}
                   />
                   {uniqueComboConfig.fields.length > 1 && (
                     <button
