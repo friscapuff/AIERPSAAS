@@ -23,3 +23,7 @@ export * from './sales-order.entity';
 export * from './sales-order-line.entity';
 export * from './purchase-order.entity';
 export * from './purchase-order-line.entity';
+export * from './screen-definition.entity';
+export * from './approval-rule.entity';
+export * from './validation-rule.entity';
+export * from './impact-rule.entity';
