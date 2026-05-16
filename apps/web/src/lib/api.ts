@@ -14,6 +14,20 @@ const API_BASE =
     ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
     : '/api/v1';
 
+// ─── Server response wrapper (from TransformInterceptor) ─────────────────────
+interface ServerResponse<T = any> {
+  data: T;
+  meta?: {
+    timestamp: string;
+    path: string;
+    method: string;
+    statusCode: number;
+    itemCount?: number;
+    pageCount?: number;
+    currentPage?: number;
+  };
+}
+
 // ─── Token helpers ────────────────────────────────────────────────────────────
 export const tokenStorage = {
   getAccess: (): string | null =>
@@ -129,9 +143,11 @@ api.interceptors.response.use(
           refreshToken,
         });
 
-        const newAccessToken: string = data.accessToken;
+        // Unwrap server envelope if present
+        const payload = data?.data ?? data;
+        const newAccessToken: string = payload.accessToken;
         tokenStorage.setAccess(newAccessToken);
-        if (data.refreshToken) tokenStorage.setRefresh(data.refreshToken);
+        if (payload.refreshToken) tokenStorage.setRefresh(payload.refreshToken);
 
         onTokenRefreshed(newAccessToken);
 
@@ -169,30 +185,40 @@ api.interceptors.response.use(
   },
 );
 
+// ─── Unwrap helper ────────────────────────────────────────────────────────────
+// The NestJS TransformInterceptor wraps every response in { data, meta }.
+// This helper safely unwraps so callers get the payload directly.
+function unwrap<T>(body: any): T {
+  if (body && typeof body === 'object' && 'data' in body && 'meta' in body) {
+    return body.data as T;
+  }
+  return body as T;
+}
+
 // ─── Typed API helpers ────────────────────────────────────────────────────────
 export async function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
-  const { data } = await api.get<T>(url, { params });
-  return data;
+  const { data } = await api.get<ServerResponse<T>>(url, { params });
+  return unwrap<T>(data);
 }
 
 export async function post<T>(url: string, body?: unknown): Promise<T> {
-  const { data } = await api.post<T>(url, body);
-  return data;
+  const { data } = await api.post<ServerResponse<T>>(url, body);
+  return unwrap<T>(data);
 }
 
 export async function put<T>(url: string, body?: unknown): Promise<T> {
-  const { data } = await api.put<T>(url, body);
-  return data;
+  const { data } = await api.put<ServerResponse<T>>(url, body);
+  return unwrap<T>(data);
 }
 
 export async function patch<T>(url: string, body?: unknown): Promise<T> {
-  const { data } = await api.patch<T>(url, body);
-  return data;
+  const { data } = await api.patch<ServerResponse<T>>(url, body);
+  return unwrap<T>(data);
 }
 
 export async function del<T>(url: string): Promise<T> {
-  const { data } = await api.delete<T>(url);
-  return data;
+  const { data } = await api.delete<ServerResponse<T>>(url);
+  return unwrap<T>(data);
 }
 
 export default api;
