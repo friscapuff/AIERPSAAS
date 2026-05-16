@@ -21,10 +21,12 @@ async function bootstrap() {
   app.enableCors(corsOptions);
 
   // Global validation pipe
+  // Note: forbidNonWhitelisted removed — it rejects properties even when
+  // they have decorators if TypeScript metadata isn't emitted for inline DTOs.
+  // whitelist:true alone is sufficient (strips unknown props silently).
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
