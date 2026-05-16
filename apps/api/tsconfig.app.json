@@ -7,15 +7,21 @@
       "@app/*": ["apps/api/src/*"],
       "@app/modules/*": ["apps/api/src/modules/*"],
       "@app/common/*": ["apps/api/src/common/*"],
+      "@libs/shared": ["libs/shared/src"],
       "@libs/shared/*": ["libs/shared/src/*"],
+      "@libs/database": ["libs/database/src"],
       "@libs/database/*": ["libs/database/src/*"],
+      "@libs/logger": ["libs/logger/src"],
       "@libs/logger/*": ["libs/logger/src/*"],
+      "@libs/auth": ["libs/auth/src"],
       "@libs/auth/*": ["libs/auth/src/*"],
+      "@libs/validation": ["libs/validation/src"],
       "@libs/validation/*": ["libs/validation/src/*"]
     }
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "../../libs/**/*"
   ],
   "exclude": [
     "node_modules",
