@@ -18,6 +18,7 @@ import {
   FieldType,
   FilterOperator,
   FilterCondition,
+  normalizeFieldType,
 } from './dto';
 
 interface ValidationError {
@@ -36,12 +37,16 @@ export class DynamicBuilderService {
   ) {}
 
   async createTable(tenantId: string, dto: CreateTableDto, userId: string): Promise<MetadataRegistry> {
+    // Use getter or direct field — DTO exposes both name/tableName and label/displayName
+    const tableName = dto.tableName || dto.name;
+    const displayName = dto.displayName || dto.label;
+
     const existingTable = await this.metadataRegistry.findOne({
-      where: { tenant_id: tenantId, table_name: dto.tableName },
+      where: { tenant_id: tenantId, table_name: tableName },
     });
 
     if (existingTable) {
-      throw new ConflictException(`Table "${dto.tableName}" already exists for this tenant`);
+      throw new ConflictException(`Table "${tableName}" already exists for this tenant`);
     }
 
     const fieldNames = new Set<string>();
@@ -63,7 +68,7 @@ export class DynamicBuilderService {
         if (!lookupTable) {
           throw new BadRequestException(`Field "${field.name}": Referenced lookup table "${field.lookupTable}" does not exist`);
         }
-        const lookupFieldExists = lookupTable.fields.some((f) => f.name === field.lookupField);
+        const lookupFieldExists = lookupTable.fields.some((f: MetadataField) => f.name === field.lookupField);
         if (!lookupFieldExists) {
           throw new BadRequestException(`Field "${field.name}": Lookup field "${field.lookupField}" does not exist in table "${field.lookupTable}"`);
         }
@@ -72,8 +77,12 @@ export class DynamicBuilderService {
 
     const metadataFields: MetadataField[] = dto.fields.map((field) => ({
       name: field.name,
-      type: field.type,
+      label: field.label || field.name,
+      type: normalizeFieldType(field.type),
       required: field.required ?? false,
+      unique: field.unique ?? false,
+      indexed: field.indexed ?? false,
+      order: field.order,
       default: field.defaultValue,
       lookup_table: field.lookupTable,
       lookup_field: field.lookupField,
@@ -81,8 +90,8 @@ export class DynamicBuilderService {
 
     const metadata = this.metadataRegistry.create({
       tenant_id: tenantId,
-      table_name: dto.tableName,
-      display_name: dto.displayName,
+      table_name: tableName,
+      display_name: displayName,
       description: dto.description,
       fields: metadataFields,
       created_by: userId,
@@ -110,8 +119,12 @@ export class DynamicBuilderService {
 
       const metadataFields: MetadataField[] = dto.fields.map((field) => ({
         name: field.name,
-        type: field.type,
+        label: field.label || field.name,
+        type: normalizeFieldType(field.type),
         required: field.required ?? false,
+        unique: field.unique ?? false,
+        indexed: field.indexed ?? false,
+        order: field.order,
         default: field.defaultValue,
         lookup_table: field.lookupTable,
         lookup_field: field.lookupField,
@@ -287,7 +300,7 @@ export class DynamicBuilderService {
           results.created++;
         } catch (error) {
           results.failed++;
-          results.errors.push({ index: i, message: error.message || 'Unknown error' });
+          results.errors.push({ index: i, message: (error as Error).message || 'Unknown error' });
         }
       }
 
@@ -316,31 +329,38 @@ export class DynamicBuilderService {
 
       if (!isPresent) continue;
 
-      switch (fieldDef.type) {
-        case FieldType.STRING:
-        case FieldType.TEXT:
+      const normalizedType = normalizeFieldType(fieldDef.type);
+
+      switch (normalizedType) {
+        case 'STRING':
+        case 'TEXT':
+        case 'TEXTAREA':
           if (typeof fieldValue !== 'string') errors.push({ field: fieldDef.name, message: 'Must be a string' });
           break;
-        case FieldType.INTEGER:
+        case 'INTEGER':
+        case 'NUMBER':
           if (!Number.isInteger(fieldValue)) errors.push({ field: fieldDef.name, message: 'Must be an integer' });
           break;
-        case FieldType.DECIMAL:
+        case 'DECIMAL':
           if (typeof fieldValue !== 'number') errors.push({ field: fieldDef.name, message: 'Must be a number' });
           break;
-        case FieldType.BOOLEAN:
+        case 'BOOLEAN':
           if (typeof fieldValue !== 'boolean') errors.push({ field: fieldDef.name, message: 'Must be a boolean' });
           break;
-        case FieldType.EMAIL:
+        case 'EMAIL':
           if (typeof fieldValue !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fieldValue))
             errors.push({ field: fieldDef.name, message: 'Must be a valid email address' });
           break;
-        case FieldType.LOOKUP:
+        case 'LOOKUP':
           if (fieldDef.lookup_table) {
             const refRecord = await this.dynamicDataRepository.findOne({
               where: { id: fieldValue, tenant_id: tenantId, table_name: fieldDef.lookup_table },
             });
             if (!refRecord) errors.push({ field: fieldDef.name, message: `Referenced record does not exist in table "${fieldDef.lookup_table}"` });
           }
+          break;
+        // DATE, DATETIME, URL, PHONE, SELECT, MULTI_SELECT, FILE — accept any value for now
+        default:
           break;
       }
     }
