@@ -23,6 +23,10 @@ import {
   BoltIcon,
   SparklesIcon,
   CircleStackIcon,
+  DocumentMagnifyingGlassIcon,
+  PresentationChartBarIcon,
+  ChartBarSquareIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeSolidIcon,
@@ -42,6 +46,7 @@ import {
   BoltIcon as BoltSolidIcon,
   SparklesIcon as SparklesSolidIcon,
   CircleStackIcon as CircleStackSolidIcon,
+  UserGroupIcon as UserGroupSolidIcon,
 } from '@heroicons/react/24/solid';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -89,6 +94,9 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Dynamic Builder', href: '/dynamic-builder', icon: TableCellsIcon, iconActive: TableCellsSolidIcon },
       { label: 'Screen Wizard', href: '/dynamic-builder/wizard', icon: SparklesIcon, iconActive: SparklesSolidIcon },
+      { label: 'Report Wizard', href: '/dynamic-builder/report-wizard', icon: DocumentChartBarIcon, iconActive: DocumentChartBarSolidIcon },
+      { label: 'Inquiry Wizard', href: '/dynamic-builder/inquiry-wizard', icon: DocumentMagnifyingGlassIcon, iconActive: DocumentMagnifyingGlassIcon },
+      { label: 'Dashboard Wizard', href: '/dynamic-builder/dashboard-wizard', icon: PresentationChartBarIcon, iconActive: PresentationChartBarIcon },
       { label: 'Data Import', href: '/dynamic-builder/data-import', icon: CircleStackIcon, iconActive: CircleStackSolidIcon },
       { label: 'Screen Builder', href: '/dynamic-builder/screens', icon: ComputerDesktopIcon, iconActive: ComputerDesktopSolidIcon },
       { label: 'Approval Rules', href: '/dynamic-builder/approvals', icon: CheckBadgeIcon, iconActive: CheckBadgeSolidIcon },
@@ -101,8 +109,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Administration',
     items: [
+      { label: 'Organization', href: '/admin/organization', icon: BuildingOffice2Icon, iconActive: BuildingOffice2Icon },
+      { label: 'Users & Roles', href: '/admin/users', icon: UserGroupIcon, iconActive: UserGroupSolidIcon },
       { label: 'Settings', href: '/settings', icon: Cog6ToothIcon, iconActive: CogSolidIcon },
-      { label: 'Intercompany', href: '/settings#intercompany', icon: BuildingOffice2Icon, iconActive: BuildingOffice2Icon },
     ],
   },
 ];
