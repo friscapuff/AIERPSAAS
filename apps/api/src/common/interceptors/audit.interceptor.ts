@@ -22,6 +22,7 @@ interface AuditLog {
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
+  private auditTableExists: boolean | null = null;
 
   constructor(private dataSource: DataSource) {}
 
@@ -87,15 +88,56 @@ export class AuditInterceptor implements NestInterceptor {
     return actionMap[method] || 'Unknown';
   }
 
+  private async ensureAuditTable(): Promise<boolean> {
+    if (this.auditTableExists === true) return true;
+    if (this.auditTableExists === false) return false;
+
+    try {
+      const result = await this.dataSource.query(
+        `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'audit_log') AS exists`,
+      );
+      this.auditTableExists = result[0]?.exists === true || result[0]?.exists === 't';
+
+      if (!this.auditTableExists) {
+        // Auto-create the audit_log table
+        await this.dataSource.query(`
+          CREATE TABLE IF NOT EXISTS audit_log (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID,
+            user_id UUID,
+            action VARCHAR(50),
+            module VARCHAR(100),
+            entity_type VARCHAR(100),
+            entity_id UUID,
+            old_values JSONB,
+            new_values JSONB,
+            timestamp TIMESTAMPTZ DEFAULT NOW(),
+            ip_address VARCHAR(50),
+            user_agent TEXT,
+            status VARCHAR(20),
+            error_message TEXT
+          );
+          CREATE INDEX IF NOT EXISTS idx_audit_log_tenant ON audit_log (tenant_id);
+          CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log (timestamp);
+        `);
+        this.auditTableExists = true;
+        this.logger.log('Created audit_log table automatically');
+      }
+
+      return this.auditTableExists;
+    } catch (error) {
+      this.logger.warn(`Failed to check/create audit_log table: ${error.message}`);
+      this.auditTableExists = false;
+      return false;
+    }
+  }
+
   private async logAudit(auditLog: Partial<AuditLog>) {
     try {
-      const queryRunner = this.dataSource.createQueryRunner();
-      await queryRunner.connect();
+      const tableReady = await this.ensureAuditTable();
+      if (!tableReady) return;
 
-      // Insert audit log
-      // Note: This assumes an audit_log table exists
-      // Implementation details depend on your entity structure
-      await queryRunner.query(
+      await this.dataSource.query(
         `INSERT INTO audit_log (tenant_id, user_id, action, module, entity_type, entity_id, old_values, new_values, timestamp, ip_address, user_agent, status, error_message)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
@@ -114,10 +156,9 @@ export class AuditInterceptor implements NestInterceptor {
           auditLog.error_message,
         ],
       );
-
-      await queryRunner.release();
     } catch (error) {
-      this.logger.error(`Failed to log audit: ${error.message}`, error.stack);
+      // Never let audit logging break the actual request
+      this.logger.warn(`Audit log failed (non-blocking): ${error.message}`);
     }
   }
 }
