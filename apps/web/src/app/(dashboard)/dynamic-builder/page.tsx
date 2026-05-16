@@ -1,15 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PlusIcon,
   TableCellsIcon,
   TrashIcon,
   PencilSquareIcon,
   ChevronRightIcon,
+  LockClosedIcon,
+  ShieldCheckIcon,
+  LinkIcon,
+  KeyIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { DataTable, ColumnDef } from '@/components/ui/DataTable';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { Input, Select, Textarea } from '@/components/ui/FormField';
@@ -27,6 +32,8 @@ import {
   type FieldType,
   type DynamicRecord,
 } from '@/hooks/useDynamic';
+import { useAllTables, type TableDefinition } from '@/hooks/useAllTables';
+import { useValidationRules, useApprovalRules } from '@/hooks/useDynamicPlatform';
 import { notify } from '@/components/ui/Toast';
 import { formatDate, cn } from '@/lib/utils';
 
@@ -52,7 +59,6 @@ const FIELD_TYPES: { label: string; value: FieldType }[] = [
 function ensureValidFieldType(type: string): FieldType {
   const found = FIELD_TYPES.find((ft) => ft.value === type);
   if (found) return found.value;
-  // Fallback mappings for backend-stored types
   const fallbackMap: Record<string, FieldType> = {
     INTEGER: 'NUMBER',
     STRING: 'TEXT',
@@ -61,7 +67,7 @@ function ensureValidFieldType(type: string): FieldType {
   return fallbackMap[type] || 'TEXT';
 }
 
-const TYPE_ICONS: Partial<Record<FieldType, string>> = {
+const TYPE_ICONS: Partial<Record<string, string>> = {
   TEXT: 'Aa',
   NUMBER: '123',
   DECIMAL: '1.5',
@@ -70,7 +76,89 @@ const TYPE_ICONS: Partial<Record<FieldType, string>> = {
   SELECT: '▾',
   LOOKUP: '🔗',
   FILE: '📎',
+  TEXTAREA: '¶',
+  EMAIL: '@',
+  URL: '🌐',
+  PHONE: '☎',
 };
+
+// ─── Field protection logic ──────────────────────────────────────────────────
+// Determines if a field is protected (cannot be deleted/type-changed)
+type FieldProtection = {
+  isProtected: boolean;
+  reason: string;
+  icon: React.ReactNode;
+};
+
+function getFieldProtection(
+  tableName: string,
+  fieldName: string,
+  allTables: TableDefinition[],
+  validationRules: any[],
+  approvalRules: any[],
+): FieldProtection {
+  // Primary key check
+  if (fieldName === 'id') {
+    return {
+      isProtected: true,
+      reason: 'Primary Key — cannot modify or delete',
+      icon: <KeyIcon className="h-3.5 w-3.5 text-amber-500" />,
+    };
+  }
+
+  // Foreign key / Lookup check — if this field is referenced by another table's LOOKUP field
+  const isFK = allTables.some((t) =>
+    t.fields.some(
+      (f) =>
+        (f.type === 'LOOKUP' || f.type === 'RELATION') &&
+        ((f as any).lookupTable === tableName || (f as any).relationTableId === tableName)
+    )
+  );
+  // Also check if THIS field is a lookup itself (FK reference)
+  const thisTable = allTables.find((t) => t.name === tableName);
+  const thisField = thisTable?.fields.find((f) => f.name === fieldName);
+  const isLookupField =
+    thisField?.type === 'LOOKUP' || (thisField as any)?.lookupTable;
+
+  if (fieldName.endsWith('_id') || isLookupField) {
+    // It's a foreign key field
+    return {
+      isProtected: true,
+      reason: 'Foreign Key reference — cannot delete (can rename label)',
+      icon: <LinkIcon className="h-3.5 w-3.5 text-blue-500" />,
+    };
+  }
+
+  // Validation rule check
+  const usedInValidation = validationRules?.some(
+    (rule: any) =>
+      rule.tableName === tableName &&
+      rule.config?.fieldName === fieldName
+  );
+  if (usedInValidation) {
+    return {
+      isProtected: true,
+      reason: 'Used in Validation Rule — remove rule first',
+      icon: <ShieldCheckIcon className="h-3.5 w-3.5 text-purple-500" />,
+    };
+  }
+
+  // Approval/workflow rule check
+  const usedInApproval = approvalRules?.some(
+    (rule: any) =>
+      rule.tableName === tableName &&
+      (rule.triggerField === fieldName || rule.conditions?.some((c: any) => c.field === fieldName))
+  );
+  if (usedInApproval) {
+    return {
+      isProtected: true,
+      reason: 'Used in Approval/Workflow Rule — remove rule first',
+      icon: <LockClosedIcon className="h-3.5 w-3.5 text-red-500" />,
+    };
+  }
+
+  return { isProtected: false, reason: '', icon: null };
+}
 
 // ─── Create Table Wizard ─────────────────────────────────────────────────────
 interface NewField {
@@ -244,19 +332,39 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-// ─── Edit Table Modal ────────────────────────────────────────────────────────
+// ─── Edit Table Modal (System + Custom) ──────────────────────────────────────
 function EditTableModal({
   table,
+  allTableDefs,
   onClose,
 }: {
   table: DynamicTable | null;
+  allTableDefs: TableDefinition[];
   onClose: () => void;
 }) {
   const updateTable = useUpdateTable();
+  const { data: validationRules } = useValidationRules(table?.name);
+  const { data: approvalRules } = useApprovalRules(table?.name);
   const [tableLabel, setTableLabel] = useState('');
   const [tableDesc, setTableDesc] = useState('');
   const [fields, setFields] = useState<NewField[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Calculate field protections
+  const fieldProtections = useMemo(() => {
+    if (!table) return {};
+    const protections: Record<string, FieldProtection> = {};
+    fields.forEach((f) => {
+      protections[f.name] = getFieldProtection(
+        table.name,
+        f.name,
+        allTableDefs,
+        validationRules || [],
+        approvalRules || [],
+      );
+    });
+    return protections;
+  }, [table, fields, allTableDefs, validationRules, approvalRules]);
 
   useEffect(() => {
     if (table) {
@@ -282,12 +390,27 @@ function EditTableModal({
   };
 
   const removeField = (i: number) => {
+    const field = fields[i];
+    const protection = fieldProtections[field.name];
+    if (protection?.isProtected) {
+      notify.error(`Cannot delete "${field.label}": ${protection.reason}`);
+      return;
+    }
     setFields((f) => f.filter((_, idx) => idx !== i));
     markChanged();
   };
 
   const updateField = (i: number, key: keyof NewField, val: string | boolean) => {
-    setFields((f) => f.map((field, idx) => (idx === i ? { ...field, [key]: val } : field)));
+    const field = fields[i];
+    const protection = fieldProtections[field.name];
+
+    // Protected fields: can only change label, not name or type
+    if (protection?.isProtected && (key === 'type' || key === 'name')) {
+      notify.error(`Cannot change ${key} of "${field.label}": ${protection.reason}`);
+      return;
+    }
+
+    setFields((f) => f.map((fld, idx) => (idx === i ? { ...fld, [key]: val } : fld)));
     markChanged();
   };
 
@@ -305,11 +428,10 @@ function EditTableModal({
       notify.error('All fields must have a name and label.');
       return;
     }
-    // Check for duplicate field names
     const fieldNames = new Set<string>();
     for (const f of fields) {
       if (fieldNames.has(f.name)) {
-        notify.error(`Duplicate field name: "${f.name}". Each field must have a unique name.`);
+        notify.error(`Duplicate field name: "${f.name}".`);
         return;
       }
       fieldNames.add(f.name);
@@ -334,20 +456,13 @@ function EditTableModal({
       setHasChanges(false);
       onClose();
     } catch (err: any) {
-      // Show detailed error from backend validation
       const errorData = err?.response?.data;
       let msg = 'Failed to update table.';
       if (errorData) {
-        if (Array.isArray(errorData.message)) {
-          msg = errorData.message.join(', ');
-        } else if (typeof errorData.message === 'string') {
-          msg = errorData.message;
-        } else if (errorData.errors) {
-          msg = errorData.errors.map((e: any) => `${e.field}: ${e.message}`).join('; ');
-        }
-      } else if (err?.message) {
-        msg = err.message;
-      }
+        if (Array.isArray(errorData.message)) msg = errorData.message.join(', ');
+        else if (typeof errorData.message === 'string') msg = errorData.message;
+        else if (errorData.errors) msg = errorData.errors.map((e: any) => `${e.field}: ${e.message}`).join('; ');
+      } else if (err?.message) msg = err.message;
       notify.error(msg);
     }
   };
@@ -356,7 +471,7 @@ function EditTableModal({
     <Modal
       open={!!table}
       onClose={onClose}
-      title="Edit Table"
+      title={`Edit Table${table?.isSystem ? ' (System)' : ''}`}
       description={`Update "${table?.label || ''}" — metadata and fields`}
       size="lg"
       footer={
@@ -369,6 +484,15 @@ function EditTableModal({
       }
     >
       <div className="space-y-4">
+        {table?.isSystem && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <ShieldCheckIcon className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <p className="text-xs text-amber-800">
+              System table — PK, FK, and fields used in validations/workflows are protected. You can add new fields and rename labels.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Input
             label="Display Label"
@@ -398,48 +522,72 @@ function EditTableModal({
               Add Field
             </Button>
           </div>
-          {fields.map((field, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-end p-3 bg-surface-50 rounded-lg border border-surface-200">
-              <Input
-                label="Field Name"
-                value={field.name}
-                onChange={(e) => updateField(i, 'name', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                placeholder="field_name"
-                size="sm"
-              />
-              <Input
-                label="Label"
-                value={field.label}
-                onChange={(e) => updateField(i, 'label', e.target.value)}
-                placeholder="Field Label"
-                size="sm"
-              />
-              <Select
-                label="Type"
-                value={field.type}
-                onChange={(e) => updateField(i, 'type', e.target.value)}
-                options={FIELD_TYPES}
-                size="sm"
-              />
-              <label className="flex items-center gap-1 text-xs text-surface-500 mb-0.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={field.required}
-                  onChange={(e) => updateField(i, 'required', e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-surface-300"
-                />
-                Req
-              </label>
-              <button
-                type="button"
-                onClick={() => removeField(i)}
-                disabled={fields.length <= 1}
-                className="p-1.5 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 disabled:opacity-30 mb-0.5"
+          {fields.map((field, i) => {
+            const protection = fieldProtections[field.name];
+            return (
+              <div
+                key={i}
+                className={cn(
+                  'grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-end p-3 rounded-lg border',
+                  protection?.isProtected
+                    ? 'bg-surface-100 border-surface-300'
+                    : 'bg-surface-50 border-surface-200'
+                )}
               >
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+                <div>
+                  <Input
+                    label={
+                      <span className="flex items-center gap-1">
+                        Field Name
+                        {protection?.icon}
+                      </span>
+                    }
+                    value={field.name}
+                    onChange={(e) => updateField(i, 'name', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                    placeholder="field_name"
+                    size="sm"
+                    disabled={protection?.isProtected}
+                  />
+                  {protection?.isProtected && (
+                    <p className="text-[10px] text-surface-500 mt-0.5">{protection.reason}</p>
+                  )}
+                </div>
+                <Input
+                  label="Label"
+                  value={field.label}
+                  onChange={(e) => updateField(i, 'label', e.target.value)}
+                  placeholder="Field Label"
+                  size="sm"
+                />
+                <Select
+                  label="Type"
+                  value={field.type}
+                  onChange={(e) => updateField(i, 'type', e.target.value)}
+                  options={FIELD_TYPES}
+                  size="sm"
+                  disabled={protection?.isProtected}
+                />
+                <label className="flex items-center gap-1 text-xs text-surface-500 mb-0.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(e) => updateField(i, 'required', e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-surface-300"
+                  />
+                  Req
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeField(i)}
+                  disabled={protection?.isProtected || fields.length <= 1}
+                  className="p-1.5 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 disabled:opacity-30 mb-0.5"
+                  title={protection?.isProtected ? protection.reason : 'Delete field'}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </Modal>
@@ -529,9 +677,66 @@ export default function DynamicBuilderTablesPage() {
   const [selectedTable, setSelectedTable] = useState<DynamicTable | null>(null);
   const [deleteTable, setDeleteTable] = useState<DynamicTable | null>(null);
   const [editTable, setEditTable] = useState<DynamicTable | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'system' | 'custom'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: tables, isLoading, refetch } = useDynamicTables();
+  const { data: dynamicTables, isLoading, refetch } = useDynamicTables();
+  const allTableDefs = useAllTables();
   const deleteTableMutation = useDeleteTable();
+
+  // Merge system tables (from useAllTables) with dynamic tables (from API)
+  const allDisplayTables: DynamicTable[] = useMemo(() => {
+    const systemAsTables: DynamicTable[] = allTableDefs
+      .filter((t) => t.isSystem)
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        label: t.label,
+        description: '',
+        icon: undefined,
+        fields: t.fields.map((f, i) => ({
+          id: f.name,
+          name: f.name,
+          label: f.label,
+          type: f.type as FieldType,
+          required: false,
+          unique: false,
+          indexed: false,
+          order: i,
+        })),
+        recordCount: 0,
+        isSystem: true,
+        createdAt: '',
+      }));
+
+    // Merge: prefer API-returned dynamic tables, add system tables
+    const dynamicNames = new Set((dynamicTables || []).map((t) => t.name));
+    const merged = [...(dynamicTables || [])];
+    for (const st of systemAsTables) {
+      if (!dynamicNames.has(st.name)) {
+        merged.push(st);
+      }
+    }
+    return merged;
+  }, [dynamicTables, allTableDefs]);
+
+  // Filtered tables
+  const filteredTables = useMemo(() => {
+    let result = allDisplayTables;
+    if (filterType === 'system') result = result.filter((t) => t.isSystem);
+    else if (filterType === 'custom') result = result.filter((t) => !t.isSystem);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) => t.label.toLowerCase().includes(q) || t.name.toLowerCase().includes(q)
+      );
+    }
+    // Sort: custom first, then system
+    return result.sort((a, b) => {
+      if (a.isSystem !== b.isSystem) return a.isSystem ? 1 : -1;
+      return a.label.localeCompare(b.label);
+    });
+  }, [allDisplayTables, filterType, searchQuery]);
 
   const handleDelete = async () => {
     if (!deleteTable) return;
@@ -546,11 +751,42 @@ export default function DynamicBuilderTablesPage() {
     }
   };
 
+  const systemCount = allDisplayTables.filter((t) => t.isSystem).length;
+  const customCount = allDisplayTables.filter((t) => !t.isSystem).length;
+
   return (
     <div className="space-y-4">
       {/* Action bar */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-surface-600">{tables?.length ?? 0} table(s) defined</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search tables..."
+            size="sm"
+            className="w-48"
+          />
+          <div className="flex items-center gap-1 bg-surface-100 rounded-lg p-0.5">
+            {[
+              { key: 'all', label: `All (${allDisplayTables.length})` },
+              { key: 'system', label: `System (${systemCount})` },
+              { key: 'custom', label: `Custom (${customCount})` },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilterType(tab.key as any)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  filterType === tab.key
+                    ? 'bg-white shadow-sm text-surface-900'
+                    : 'text-surface-500 hover:text-surface-700'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <Button leftIcon={<PlusIcon className="h-4 w-4" />} onClick={() => setShowCreate(true)}>
           New Table
         </Button>
@@ -567,6 +803,9 @@ export default function DynamicBuilderTablesPage() {
             </button>
             <ChevronRightIcon className="h-3.5 w-3.5 text-surface-400" />
             <span className="text-sm font-medium text-surface-900">{selectedTable.label}</span>
+            {selectedTable.isSystem && (
+              <Badge variant="info" className="text-[10px] ml-1">System</Badge>
+            )}
             <button
               onClick={() => setEditTable(selectedTable)}
               className="ml-2 p-1 rounded text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
@@ -592,14 +831,14 @@ export default function DynamicBuilderTablesPage() {
                     {TYPE_ICONS[field.type] ?? (field.type || '').slice(0, 3)}
                   </span>
                   <span className="text-xs font-medium text-surface-700">{field.label}</span>
-                  <span className="text-[10px] text-surface-400 ml-0.5">({field.type})</span>
+                  <span className="text-[10px] text-surface-400">({field.type})</span>
                   {field.required && <span className="text-danger-400 text-xs">*</span>}
                 </div>
               ))}
             </div>
           </Card>
 
-          <TableDataView table={selectedTable} />
+          {!selectedTable.isSystem && <TableDataView table={selectedTable} />}
         </div>
       ) : isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -607,20 +846,26 @@ export default function DynamicBuilderTablesPage() {
             <div key={i} className="h-32 bg-surface-100 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : !tables?.length ? (
+      ) : !filteredTables.length ? (
         <Card padding="lg" className="text-center">
           <TableCellsIcon className="h-12 w-12 text-surface-300 mx-auto mb-3" />
-          <h3 className="text-sm font-semibold text-surface-700">No custom tables yet</h3>
+          <h3 className="text-sm font-semibold text-surface-700">
+            {searchQuery ? 'No tables match your search' : 'No custom tables yet'}
+          </h3>
           <p className="text-xs text-surface-400 mt-1 mb-4">
-            Create your first custom data table to store business-specific data.
+            {searchQuery
+              ? 'Try a different search term.'
+              : 'Create your first custom data table to store business-specific data.'}
           </p>
-          <Button onClick={() => setShowCreate(true)} leftIcon={<PlusIcon className="h-4 w-4" />}>
-            Create First Table
-          </Button>
+          {!searchQuery && (
+            <Button onClick={() => setShowCreate(true)} leftIcon={<PlusIcon className="h-4 w-4" />}>
+              Create First Table
+            </Button>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {tables.map((table) => (
+          {filteredTables.map((table) => (
             <Card
               key={table.id}
               hover
@@ -629,8 +874,14 @@ export default function DynamicBuilderTablesPage() {
               onClick={() => setSelectedTable(table)}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="h-10 w-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                  <TableCellsIcon className="h-5 w-5 text-primary-600" />
+                <div className={cn(
+                  'h-10 w-10 rounded-lg flex items-center justify-center',
+                  table.isSystem ? 'bg-blue-50' : 'bg-primary-50'
+                )}>
+                  <TableCellsIcon className={cn(
+                    'h-5 w-5',
+                    table.isSystem ? 'text-blue-600' : 'text-primary-600'
+                  )} />
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -659,12 +910,10 @@ export default function DynamicBuilderTablesPage() {
                 <span>{table.fields.length} fields</span>
                 <span>·</span>
                 <span>{(table.recordCount ?? 0).toLocaleString()} records</span>
-                {table.isSystem && (
-                  <>
-                    <span>·</span>
-                    <span className="text-info-500 font-medium">System</span>
-                  </>
-                )}
+                <span>·</span>
+                <span className={table.isSystem ? 'text-blue-500 font-medium' : 'text-emerald-500 font-medium'}>
+                  {table.isSystem ? 'System' : 'Custom'}
+                </span>
               </div>
             </Card>
           ))}
@@ -673,7 +922,11 @@ export default function DynamicBuilderTablesPage() {
 
       {/* Modals */}
       <CreateTableModal open={showCreate} onClose={() => setShowCreate(false)} />
-      <EditTableModal table={editTable} onClose={() => { setEditTable(null); refetch(); }} />
+      <EditTableModal
+        table={editTable}
+        allTableDefs={allTableDefs}
+        onClose={() => { setEditTable(null); refetch(); }}
+      />
       <ConfirmModal
         open={!!deleteTable}
         onClose={() => setDeleteTable(null)}
