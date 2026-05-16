@@ -5,6 +5,9 @@ import { ScreenDefinition } from '@libs/database/entities/screen-definition.enti
 import { ApprovalRule } from '@libs/database/entities/approval-rule.entity';
 import { ValidationRule } from '@libs/database/entities/validation-rule.entity';
 import { ImpactRule } from '@libs/database/entities/impact-rule.entity';
+import { ReportDefinition } from '@libs/database/entities/report-definition.entity';
+import { InquiryDefinition } from '@libs/database/entities/inquiry-definition.entity';
+import { DashboardDefinition } from '@libs/database/entities/dashboard-definition.entity';
 import { DynamicBuilderController } from './dynamic-builder.controller';
 import { DynamicBuilderService } from './dynamic-builder.service';
 import { ScreenBuilderController } from './screen-builder.controller';
@@ -15,6 +18,9 @@ import { ValidationRulesController } from './validation-rules.controller';
 import { ValidationRulesService } from './validation-rules.service';
 import { ImpactRulesController } from './impact-rules.controller';
 import { ImpactRulesService } from './impact-rules.service';
+import { ReportsController } from './reports.controller';
+import { InquiriesController } from './inquiries.controller';
+import { DashboardsController } from './dashboards.controller';
 
 @Module({
   imports: [
@@ -25,6 +31,9 @@ import { ImpactRulesService } from './impact-rules.service';
       ApprovalRule,
       ValidationRule,
       ImpactRule,
+      ReportDefinition,
+      InquiryDefinition,
+      DashboardDefinition,
     ]),
   ],
   controllers: [
@@ -33,6 +42,9 @@ import { ImpactRulesService } from './impact-rules.service';
     ApprovalRulesController,
     ValidationRulesController,
     ImpactRulesController,
+    ReportsController,
+    InquiriesController,
+    DashboardsController,
   ],
   providers: [
     DynamicBuilderService,

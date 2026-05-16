@@ -32,3 +32,6 @@ export * from './validation-rule.entity';
 export * from './impact-rule.entity';
 export * from './company.entity';
 export * from './branch.entity';
+export * from './report-definition.entity';
+export * from './inquiry-definition.entity';
+export * from './dashboard-definition.entity';
