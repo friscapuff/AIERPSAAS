@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PlusIcon,
   TrashIcon,
   PencilSquareIcon,
   BoltIcon,
+  XMarkIcon,
+  TableCellsIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +23,47 @@ import {
   type ImpactRuleType,
 } from '@/hooks/useDynamicPlatform';
 import { notify } from '@/components/ui/Toast';
+
+/* ─── FieldSelect: dropdown from selected tables + Add New ─── */
+function FieldSelect({ value, onChange, allFields, label }: { value: string; onChange: (v: string) => void; allFields: { value: string; label: string; table: string }[]; label?: string }) {
+  const [showNew, setShowNew] = useState(false);
+  const [newVal, setNewVal] = useState('');
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => { if (e.target.value === '__ADD_NEW__') setShowNew(true); else onChange(e.target.value); };
+  const handleAdd = () => { if (newVal.trim()) { onChange(newVal.trim()); setShowNew(false); setNewVal(''); } };
+  if (showNew) return (<div className="space-y-1">{label && <label className="block text-xs font-medium text-surface-700">{label}</label>}<div className="flex gap-1 items-center"><input value={newVal} onChange={(e) => setNewVal(e.target.value)} placeholder="field_name" className="flex-1 rounded-md border border-surface-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleAdd()} /><button onClick={handleAdd} className="px-2 py-1.5 bg-primary-600 text-white rounded text-xs font-medium hover:bg-primary-700">OK</button><button onClick={() => { setShowNew(false); setNewVal(''); }} className="px-2 py-1.5 bg-surface-200 text-surface-600 rounded text-xs hover:bg-surface-300">X</button></div></div>);
+  const grouped = allFields.reduce<Record<string, typeof allFields>>((acc, f) => { (acc[f.table] = acc[f.table] || []).push(f); return acc; }, {});
+  return (<div className="space-y-1">{label && <label className="block text-xs font-medium text-surface-700">{label}</label>}<select value={value} onChange={handleChange} className="w-full rounded-md border border-surface-300 px-2 py-1.5 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"><option value="">— Select Field —</option>{Object.entries(grouped).map(([t, fields]) => (<optgroup key={t} label={t}>{fields.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</optgroup>))}<option value="__ADD_NEW__">+ Add New Field</option></select></div>);
+}
+
+/* ─── MultiTableSelector ─── */
+function MultiTableSelector({ selectedTables, onAdd, onRemove, allTables }: { selectedTables: string[]; onAdd: (n: string) => void; onRemove: (n: string) => void; allTables: { name: string; label: string }[] }) {
+  const [addValue, setAddValue] = useState('');
+  const available = allTables.filter((t) => !selectedTables.includes(t.name));
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-semibold text-surface-700">Selected Tables *</label>
+      <div className="flex flex-wrap gap-2 min-h-[36px] p-2 border border-surface-200 rounded-lg bg-surface-50">
+        {selectedTables.length === 0 && <span className="text-xs text-surface-400 italic">No tables selected</span>}
+        {selectedTables.map((name) => { const tbl = allTables.find((t) => t.name === name); return (<span key={name} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium"><TableCellsIcon className="h-3.5 w-3.5" />{tbl?.label || name}<button onClick={() => onRemove(name)} className="hover:text-danger-600"><XMarkIcon className="h-3.5 w-3.5" /></button></span>); })}
+      </div>
+      <div className="flex gap-2 items-end">
+        <div className="flex-1"><select value={addValue} onChange={(e) => setAddValue(e.target.value)} className="w-full rounded-md border border-surface-300 px-2 py-1.5 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"><option value="">— Add a Table —</option>{available.map((t) => <option key={t.name} value={t.name}>{t.label}</option>)}</select></div>
+        <Button variant="secondary" size="xs" leftIcon={<PlusIcon className="h-3.5 w-3.5" />} onClick={() => { if (addValue) { onAdd(addValue); setAddValue(''); } }} disabled={!addValue}>Add Table</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── StatusSelect with Add New ─── */
+function StatusSelect({ value, onChange, label, placeholder, required, hint }: { value: string; onChange: (v: string) => void; label: string; placeholder?: string; required?: boolean; hint?: string }) {
+  const [showNew, setShowNew] = useState(false);
+  const [newVal, setNewVal] = useState('');
+  const statuses = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'POSTED', 'CANCELLED', 'ACTIVE', 'INACTIVE'];
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => { if (e.target.value === '__ADD_NEW__') setShowNew(true); else onChange(e.target.value); };
+  const handleAdd = () => { if (newVal.trim()) { onChange(newVal.trim().toUpperCase()); setShowNew(false); setNewVal(''); } };
+  if (showNew) return (<div className="space-y-1"><label className="block text-xs font-medium text-surface-700">{label}</label><div className="flex gap-1 items-center"><input value={newVal} onChange={(e) => setNewVal(e.target.value)} placeholder={placeholder} className="flex-1 rounded-md border border-surface-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleAdd()} /><button onClick={handleAdd} className="px-2 py-1.5 bg-primary-600 text-white rounded text-xs font-medium hover:bg-primary-700">OK</button><button onClick={() => { setShowNew(false); setNewVal(''); }} className="px-2 py-1.5 bg-surface-200 text-surface-600 rounded text-xs hover:bg-surface-300">X</button></div>{hint && <p className="text-2xs text-surface-400">{hint}</p>}</div>);
+  return (<div className="space-y-1"><label className="block text-xs font-medium text-surface-700">{label} {required && <span className="text-danger-500">*</span>}</label><select value={value} onChange={handleChange} className="w-full rounded-md border border-surface-300 px-2 py-1.5 text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"><option value="">— Select Status —</option>{statuses.map((s) => <option key={s} value={s}>{s}</option>)}{value && !statuses.includes(value) && <option value={value}>{value}</option>}<option value="__ADD_NEW__">+ Add New Status</option></select>{hint && <p className="text-2xs text-surface-400">{hint}</p>}</div>);
+}
 
 const IMPACT_TYPES = [
   { label: 'GL Posting (Accounting)', value: 'GL_POSTING' },
@@ -50,7 +93,7 @@ const IMPACT_BADGE: Record<string, 'success' | 'warning' | 'info' | 'default'> =
 };
 
 // ─── GL Posting Config Editor ────────────────────────────────────────────────
-function GlPostingConfigEditor({ entries, onChange }: { entries: any[]; onChange: (e: any[]) => void }) {
+function GlPostingConfigEditor({ entries, onChange, allFields }: { entries: any[]; onChange: (e: any[]) => void; allFields: { value: string; label: string; table: string }[] }) {
   const addEntry = () => onChange([...entries, { accountCodeField: '', accountCodeFixed: '', debitField: '', creditField: '', descriptionTemplate: '' }]);
   const removeEntry = (i: number) => onChange(entries.filter((_, idx) => idx !== i));
   const updateEntry = (i: number, key: string, val: string) =>
@@ -80,27 +123,23 @@ function GlPostingConfigEditor({ entries, onChange }: { entries: any[]; onChange
               size="sm"
               hint="Or use field below"
             />
-            <Input
+            <FieldSelect
               label="Account Code Field (dynamic)"
               value={entry.accountCodeField || ''}
-              onChange={(e) => updateEntry(i, 'accountCodeField', e.target.value)}
-              placeholder="expense_account"
-              size="sm"
-              hint="Field on record holding account code"
+              onChange={(v) => updateEntry(i, 'accountCodeField', v)}
+              allFields={allFields}
             />
-            <Input
+            <FieldSelect
               label="Debit Field"
               value={entry.debitField || ''}
-              onChange={(e) => updateEntry(i, 'debitField', e.target.value)}
-              placeholder="total_amount"
-              size="sm"
+              onChange={(v) => updateEntry(i, 'debitField', v)}
+              allFields={allFields}
             />
-            <Input
+            <FieldSelect
               label="Credit Field"
               value={entry.creditField || ''}
-              onChange={(e) => updateEntry(i, 'creditField', e.target.value)}
-              placeholder="total_amount"
-              size="sm"
+              onChange={(v) => updateEntry(i, 'creditField', v)}
+              allFields={allFields}
             />
           </div>
           <Input
@@ -131,8 +170,9 @@ function ImpactRuleFormModal({
   const createRule = useCreateImpactRule();
   const updateRule = useUpdateImpactRule();
 
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
-    tableName: '',
     ruleName: '',
     description: '',
     triggerStatus: '',
@@ -149,10 +189,19 @@ function ImpactRuleFormModal({
   const [webhookConfig, setWebhookConfig] = useState({ url: '', method: 'POST', headers: '', bodyTemplate: '' });
   const [fieldUpdateConfig, setFieldUpdateConfig] = useState({ targetTable: '', targetRecordField: '', updates: [{ field: '', valueOrExpression: '' }] });
 
+  const allFields = useMemo(() => {
+    if (!tables || selectedTables.length === 0) return [];
+    return selectedTables.flatMap((tName) => {
+      const tbl = tables.find((t) => t.name === tName);
+      if (!tbl || !tbl.fields) return [];
+      return tbl.fields.map((f: any) => ({ value: f.name, label: f.label || f.name, table: tbl.label || tbl.name }));
+    });
+  }, [tables, selectedTables]);
+
   useEffect(() => {
     if (rule) {
+      setSelectedTables(rule.tableName ? [rule.tableName] : []);
       setFormData({
-        tableName: rule.tableName,
         ruleName: rule.ruleName,
         description: rule.description || '',
         triggerStatus: rule.triggerStatus,
@@ -170,7 +219,8 @@ function ImpactRuleFormModal({
         case 'FIELD_UPDATE': setFieldUpdateConfig({ targetTable: cfg.targetTable || '', targetRecordField: cfg.targetRecordField || '', updates: cfg.updates?.length ? cfg.updates : [{ field: '', valueOrExpression: '' }] }); break;
       }
     } else {
-      setFormData({ tableName: '', ruleName: '', description: '', triggerStatus: '', impactType: 'GL_POSTING', isActive: true, priority: 0 });
+      setSelectedTables([]);
+      setFormData({ ruleName: '', description: '', triggerStatus: '', impactType: 'GL_POSTING', isActive: true, priority: 0 });
       setGlEntries([{ accountCodeField: '', accountCodeFixed: '', debitField: '', creditField: '', descriptionTemplate: '' }]);
     }
   }, [rule, open]);
@@ -192,13 +242,14 @@ function ImpactRuleFormModal({
   };
 
   const handleSubmit = async () => {
-    if (!formData.tableName || !formData.ruleName || !formData.triggerStatus) {
+    const tableName = selectedTables[0] || '';
+    if (!tableName || !formData.ruleName || !formData.triggerStatus) {
       notify.error('Table, rule name, and trigger status are required.');
       return;
     }
     const payload = {
-      table_name: formData.tableName,
-      tableName: formData.tableName,
+      table_name: tableName,
+      tableName: tableName,
       rule_name: formData.ruleName,
       ruleName: formData.ruleName,
       description: formData.description || null,
@@ -244,42 +295,43 @@ function ImpactRuleFormModal({
     >
       <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
         {/* Basic info */}
-        <div className="grid grid-cols-2 gap-3">
-          <Select
-            label="Table"
-            value={formData.tableName}
-            onChange={(e) => setFormData({ ...formData, tableName: e.target.value })}
-            options={[{ label: '— Select Table —', value: '' }, ...(tables?.map((t) => ({ label: t.label, value: t.name })) || [])]}
-            required
+        <div className="space-y-3">
+          <MultiTableSelector
+            selectedTables={selectedTables}
+            onAdd={(n) => setSelectedTables([...selectedTables, n])}
+            onRemove={(n) => setSelectedTables(selectedTables.filter((t) => t !== n))}
+            allTables={tables?.map((t) => ({ name: t.name, label: t.label })) || []}
           />
-          <Input
-            label="Rule Name"
-            value={formData.ruleName}
-            onChange={(e) => setFormData({ ...formData, ruleName: e.target.value })}
-            placeholder="Post Sales Invoice to GL"
-            required
-          />
-          <Input
-            label="Trigger Status"
-            value={formData.triggerStatus}
-            onChange={(e) => setFormData({ ...formData, triggerStatus: e.target.value })}
-            placeholder="POSTED"
-            hint="Fires when record moves to this status"
-            required
-          />
-          <Select
-            label="Impact Type"
-            value={formData.impactType}
-            onChange={(e) => setFormData({ ...formData, impactType: e.target.value })}
-            options={IMPACT_TYPES}
-          />
-          <Input
-            label="Priority"
-            value={String(formData.priority)}
-            onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-            type="number"
-            hint="Lower = runs first"
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Rule Name"
+              value={formData.ruleName}
+              onChange={(e) => setFormData({ ...formData, ruleName: e.target.value })}
+              placeholder="Post Sales Invoice to GL"
+              required
+            />
+            <StatusSelect
+              label="Trigger Status"
+              value={formData.triggerStatus}
+              onChange={(v) => setFormData({ ...formData, triggerStatus: v })}
+              placeholder="POSTED"
+              hint="Fires when record moves to this status"
+              required
+            />
+            <Select
+              label="Impact Type"
+              value={formData.impactType}
+              onChange={(e) => setFormData({ ...formData, impactType: e.target.value })}
+              options={IMPACT_TYPES}
+            />
+            <Input
+              label="Priority"
+              value={String(formData.priority)}
+              onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+              type="number"
+              hint="Lower = runs first"
+            />
+          </div>
         </div>
         <Textarea
           label="Description"
@@ -291,7 +343,7 @@ function ImpactRuleFormModal({
         {/* GL Posting Config */}
         {formData.impactType === 'GL_POSTING' && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <GlPostingConfigEditor entries={glEntries} onChange={setGlEntries} />
+            <GlPostingConfigEditor entries={glEntries} onChange={setGlEntries} allFields={allFields} />
           </div>
         )}
 
@@ -300,10 +352,10 @@ function ImpactRuleFormModal({
           <div className="p-3 bg-green-50 rounded-lg border border-green-200 space-y-3">
             <h4 className="text-xs font-semibold text-green-800">Inventory Movement Config</h4>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Item Field" value={inventoryConfig.itemField} onChange={(e) => setInventoryConfig({ ...inventoryConfig, itemField: e.target.value })} placeholder="item_id" size="sm" />
-              <Input label="Warehouse Field" value={inventoryConfig.warehouseField} onChange={(e) => setInventoryConfig({ ...inventoryConfig, warehouseField: e.target.value })} placeholder="warehouse_id" size="sm" />
-              <Input label="Quantity Field" value={inventoryConfig.quantityField} onChange={(e) => setInventoryConfig({ ...inventoryConfig, quantityField: e.target.value })} placeholder="quantity" size="sm" />
-              <Input label="Unit Cost Field" value={inventoryConfig.unitCostField} onChange={(e) => setInventoryConfig({ ...inventoryConfig, unitCostField: e.target.value })} placeholder="unit_cost" size="sm" />
+              <FieldSelect label="Item Field" value={inventoryConfig.itemField} onChange={(v) => setInventoryConfig({ ...inventoryConfig, itemField: v })} allFields={allFields} />
+              <FieldSelect label="Warehouse Field" value={inventoryConfig.warehouseField} onChange={(v) => setInventoryConfig({ ...inventoryConfig, warehouseField: v })} allFields={allFields} />
+              <FieldSelect label="Quantity Field" value={inventoryConfig.quantityField} onChange={(v) => setInventoryConfig({ ...inventoryConfig, quantityField: v })} allFields={allFields} />
+              <FieldSelect label="Unit Cost Field" value={inventoryConfig.unitCostField} onChange={(v) => setInventoryConfig({ ...inventoryConfig, unitCostField: v })} allFields={allFields} />
               <Select label="Movement Type" value={inventoryConfig.movementType} onChange={(e) => setInventoryConfig({ ...inventoryConfig, movementType: e.target.value })} options={[{ label: 'Receipt (IN)', value: 'RECEIPT' }, { label: 'Issue (OUT)', value: 'ISSUE' }]} />
             </div>
           </div>
@@ -314,7 +366,7 @@ function ImpactRuleFormModal({
           <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-3">
             <h4 className="text-xs font-semibold text-purple-800">CRM Activity Log Config</h4>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Customer Field" value={crmConfig.customerField} onChange={(e) => setCrmConfig({ ...crmConfig, customerField: e.target.value })} placeholder="customer_id" size="sm" />
+              <FieldSelect label="Customer Field" value={crmConfig.customerField} onChange={(v) => setCrmConfig({ ...crmConfig, customerField: v })} allFields={allFields} />
               <Input label="Activity Type" value={crmConfig.activityType} onChange={(e) => setCrmConfig({ ...crmConfig, activityType: e.target.value })} placeholder="SALE" size="sm" />
             </div>
             <Input label="Description Template" value={crmConfig.descriptionTemplate} onChange={(e) => setCrmConfig({ ...crmConfig, descriptionTemplate: e.target.value })} placeholder="Sale {{invoice_number}} for {{total_amount}}" size="sm" />
@@ -330,7 +382,7 @@ function ImpactRuleFormModal({
               <p className="text-xs text-surface-600">Field Mapping:</p>
               {recordCreateConfig.fieldMapping.map((m, i) => (
                 <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                  <Input value={m.targetField} onChange={(e) => { const u = [...recordCreateConfig.fieldMapping]; u[i] = { ...u[i], targetField: e.target.value }; setRecordCreateConfig({ ...recordCreateConfig, fieldMapping: u }); }} placeholder="Target Field" size="sm" />
+                  <FieldSelect value={m.targetField} onChange={(v) => { const u = [...recordCreateConfig.fieldMapping]; u[i] = { ...u[i], targetField: v }; setRecordCreateConfig({ ...recordCreateConfig, fieldMapping: u }); }} allFields={allFields} label="Target Field" />
                   <Input value={m.sourceFieldOrValue} onChange={(e) => { const u = [...recordCreateConfig.fieldMapping]; u[i] = { ...u[i], sourceFieldOrValue: e.target.value }; setRecordCreateConfig({ ...recordCreateConfig, fieldMapping: u }); }} placeholder="Source Field or Value" size="sm" />
                   <button onClick={() => setRecordCreateConfig({ ...recordCreateConfig, fieldMapping: recordCreateConfig.fieldMapping.filter((_, idx) => idx !== i) })} className="p-1 text-surface-400 hover:text-danger-500"><TrashIcon className="h-4 w-4" /></button>
                 </div>
@@ -359,13 +411,13 @@ function ImpactRuleFormModal({
             <h4 className="text-xs font-semibold text-teal-800">Field Update Config</h4>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Target Table" value={fieldUpdateConfig.targetTable} onChange={(e) => setFieldUpdateConfig({ ...fieldUpdateConfig, targetTable: e.target.value })} placeholder="Same or another table" size="sm" />
-              <Input label="Target Record Field" value={fieldUpdateConfig.targetRecordField} onChange={(e) => setFieldUpdateConfig({ ...fieldUpdateConfig, targetRecordField: e.target.value })} placeholder="parent_order_id" size="sm" hint="Field linking to target record" />
+              <FieldSelect label="Target Record Field" value={fieldUpdateConfig.targetRecordField} onChange={(v) => setFieldUpdateConfig({ ...fieldUpdateConfig, targetRecordField: v })} allFields={allFields} />
             </div>
             <div className="space-y-2">
               <p className="text-xs text-surface-600">Updates:</p>
               {fieldUpdateConfig.updates.map((u, i) => (
                 <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                  <Input value={u.field} onChange={(e) => { const arr = [...fieldUpdateConfig.updates]; arr[i] = { ...arr[i], field: e.target.value }; setFieldUpdateConfig({ ...fieldUpdateConfig, updates: arr }); }} placeholder="Field to update" size="sm" />
+                  <FieldSelect value={u.field} onChange={(v) => { const arr = [...fieldUpdateConfig.updates]; arr[i] = { ...arr[i], field: v }; setFieldUpdateConfig({ ...fieldUpdateConfig, updates: arr }); }} allFields={allFields} label="Field to update" />
                   <Input value={u.valueOrExpression} onChange={(e) => { const arr = [...fieldUpdateConfig.updates]; arr[i] = { ...arr[i], valueOrExpression: e.target.value }; setFieldUpdateConfig({ ...fieldUpdateConfig, updates: arr }); }} placeholder="Value or expression" size="sm" />
                   <button onClick={() => setFieldUpdateConfig({ ...fieldUpdateConfig, updates: fieldUpdateConfig.updates.filter((_, idx) => idx !== i) })} className="p-1 text-surface-400 hover:text-danger-500"><TrashIcon className="h-4 w-4" /></button>
                 </div>
