@@ -22,15 +22,16 @@ import { useAuth } from '@/lib/auth';
 import { formatDate, cn } from '@/lib/utils';
 import { notify } from '@/components/ui/Toast';
 
-// ─── Tabs ────────────────────────────────────────────────────────��────────────
-type Tab = 'company' | 'users' | 'roles' | 'webhooks' | 'audit';
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+type Tab = 'company' | 'users' | 'roles' | 'webhooks' | 'audit' | 'intercompany';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'company',  label: 'Company',     icon: BuildingOffice2Icon },
-  { id: 'users',    label: 'Users',        icon: UsersIcon },
-  { id: 'roles',    label: 'Roles',        icon: ShieldCheckIcon },
-  { id: 'webhooks', label: 'Webhooks',     icon: LinkIcon },
-  { id: 'audit',    label: 'Audit Log',    icon: ClipboardDocumentListIcon },
+  { id: 'company',       label: 'Company',        icon: BuildingOffice2Icon },
+  { id: 'users',         label: 'Users',           icon: UsersIcon },
+  { id: 'roles',         label: 'Roles',           icon: ShieldCheckIcon },
+  { id: 'webhooks',      label: 'Webhooks',        icon: LinkIcon },
+  { id: 'audit',         label: 'Audit Log',       icon: ClipboardDocumentListIcon },
+  { id: 'intercompany',  label: 'Intercompany',    icon: BuildingOffice2Icon },
 ];
 
 // ─── Mock types (will come from API hooks in real integration) ───────────────
@@ -173,7 +174,7 @@ const userColumns: ColumnDef<UserRecord, unknown>[] = [
   },
 ];
 
-// ─── Webhook columns ──────────────────────────��───────────────────────────────
+// ─── Webhook columns ──────────────────────────────────────────────────────────
 const webhookColumns: ColumnDef<WebhookConfig, unknown>[] = [
   {
     accessorKey: 'name',
@@ -216,7 +217,7 @@ const webhookColumns: ColumnDef<WebhookConfig, unknown>[] = [
   },
 ];
 
-// ─── Audit Log columns ─────────────────────────────────���──────────────────────
+// ─── Audit Log columns ────────────────────────────────────────────────────────
 const auditColumns: ColumnDef<AuditEntry, unknown>[] = [
   {
     accessorKey: 'timestamp',
@@ -276,12 +277,14 @@ export default function SettingsPage() {
   const [grants, setGrants] = useState(DEFAULT_GRANTS);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [intercompanyTxns, setIntercompanyTxns] = useState<unknown[]>([]);
+  const [intercompanyLoading, setIntercompanyLoading] = useState(false);
 
   // ─── Read URL hash on mount and on hash change ────────────────────────────
   useEffect(() => {
     const readHash = () => {
       const hash = window.location.hash.replace('#', '') as Tab;
-      const validTabs: Tab[] = ['company', 'users', 'roles', 'webhooks', 'audit'];
+      const validTabs: Tab[] = ['company', 'users', 'roles', 'webhooks', 'audit', 'intercompany'];
       if (validTabs.includes(hash)) {
         setActiveTab(hash);
       }
@@ -329,6 +332,37 @@ export default function SettingsPage() {
     };
 
     fetchAuditLogs();
+  }, [activeTab]);
+
+  // ─── Fetch intercompany transactions when intercompany tab is active ──────
+  useEffect(() => {
+    if (activeTab !== 'intercompany') return;
+
+    const fetchIntercompanyTxns = async () => {
+      setIntercompanyLoading(true);
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const res = await fetch('/api/v1/intercompany/transactions', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const entries = json.data ?? json;
+          setIntercompanyTxns(Array.isArray(entries) ? entries : []);
+        } else {
+          setIntercompanyTxns([]);
+        }
+      } catch {
+        setIntercompanyTxns([]);
+      } finally {
+        setIntercompanyLoading(false);
+      }
+    };
+
+    fetchIntercompanyTxns();
   }, [activeTab]);
 
   const toggleGrant = (role: string, permission: string) => {
@@ -577,6 +611,50 @@ export default function SettingsPage() {
                   </div>
                 </Card>
               )}
+            </div>
+          )}
+
+          {/* Intercompany */}
+          {activeTab === 'intercompany' && (
+            <div className="space-y-4">
+              <Card padding="md">
+                <Card.Header
+                  title="Intercompany Transactions"
+                  subtitle="Manage Due-to / Due-from balances between group entities"
+                  border
+                />
+                <div className="space-y-4">
+                  <div className="bg-info-50 border border-info-200 rounded-lg px-4 py-3">
+                    <p className="text-sm text-info-800 font-medium">Due-to / Due-from Overview</p>
+                    <p className="text-xs text-info-600 mt-1">
+                      Intercompany transactions track amounts owed between entities within the BSG group.
+                      A &ldquo;Due-to&rdquo; represents a liability (amount owed to a sister company), while a &ldquo;Due-from&rdquo;
+                      represents a receivable (amount owed by a sister company). These balances must net to zero
+                      across the consolidated group.
+                    </p>
+                  </div>
+
+                  {intercompanyLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin h-6 w-6 border-2 border-primary-600 border-t-transparent rounded-full" />
+                      <span className="ml-3 text-sm text-surface-500">Loading intercompany transactions…</span>
+                    </div>
+                  ) : intercompanyTxns.length > 0 ? (
+                    <div className="text-sm text-surface-600">
+                      {intercompanyTxns.length} transaction(s) loaded.
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <BuildingOffice2Icon className="h-10 w-10 text-surface-300 mx-auto mb-3" />
+                      <h3 className="text-sm font-semibold text-surface-700">No Intercompany Transactions</h3>
+                      <p className="text-xs text-surface-500 mt-1 max-w-sm mx-auto">
+                        Intercompany transactions will appear here once entities begin recording
+                        Due-to and Due-from entries. Data is fetched from <span className="font-mono text-2xs bg-surface-100 px-1 py-0.5 rounded">/api/v1/intercompany/transactions</span>.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </Card>
             </div>
           )}
         </div>
