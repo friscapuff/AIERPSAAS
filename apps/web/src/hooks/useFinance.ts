@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post, put, patch } from '@/lib/api';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────���──
 export interface Account {
   id: string;
   code: string;
@@ -58,7 +58,7 @@ export interface PaginatedResult<T> {
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
-// ─── Query keys ───────────────────────────────────────────────────────────────
+// ─── Query keys ─────────────────────────��─────────────────────────────────────
 export const financeKeys = {
   all:           ['finance'] as const,
   accounts:      () => [...financeKeys.all, 'accounts'] as const,
@@ -70,7 +70,7 @@ export const financeKeys = {
   revenueChart:  () => [...financeKeys.all, 'dashboard', 'revenue-chart'] as const,
 };
 
-// ─── Accounts ─────────────────────────────────────────────────────────────────
+// ─── Accounts ─────────────────────────────────────────────────────��───────────
 export function useAccounts() {
   return useQuery({
     queryKey: financeKeys.accounts(),
@@ -85,7 +85,33 @@ export function useAccountTree() {
   });
 }
 
-// ─── Journal Entries ──────────────────────────────────────────────────────────
+export interface CreateAccountInput {
+  code: string;
+  name: string;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+  description?: string;
+  parentId?: string;
+}
+
+export function useCreateAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateAccountInput) =>
+      post<Account>('/finance/chart-of-accounts', {
+        account_code: data.code,
+        account_name: data.name,
+        account_type: data.type,
+        description: data.description,
+        parent_id: data.parentId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: financeKeys.accounts() });
+      queryClient.invalidateQueries({ queryKey: financeKeys.accountTree() });
+    },
+  });
+}
+
+// ─── Journal Entries ──────────────────────────��───────────────────────────────
 export interface JournalEntryFilters {
   page?: number;
   limit?: number;
@@ -154,7 +180,7 @@ export function useVoidJournalEntry() {
   });
 }
 
-// ─── Periods ──────────────────────────────────────────────────────────────────
+// ─── Periods ─────────────────────────────────────────────────────────��────────
 export function usePeriods() {
   return useQuery({
     queryKey: financeKeys.periods(),
