@@ -21,6 +21,7 @@ import {
   ClipboardDocumentCheckIcon,
   BoltIcon,
   SparklesIcon,
+  CircleStackIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeSolidIcon,
@@ -38,6 +39,7 @@ import {
   ClipboardDocumentCheckIcon as ClipboardDocumentCheckSolidIcon,
   BoltIcon as BoltSolidIcon,
   SparklesIcon as SparklesSolidIcon,
+  CircleStackIcon as CircleStackSolidIcon,
 } from '@heroicons/react/24/solid';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -84,6 +86,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Dynamic Builder', href: '/dynamic-builder', icon: TableCellsIcon, iconActive: TableCellsSolidIcon },
       { label: 'Screen Wizard', href: '/dynamic-builder/wizard', icon: SparklesIcon, iconActive: SparklesSolidIcon },
+      { label: 'Data Import', href: '/dynamic-builder/data-import', icon: CircleStackIcon, iconActive: CircleStackSolidIcon },
       { label: 'Screen Builder', href: '/dynamic-builder/screens', icon: ComputerDesktopIcon, iconActive: ComputerDesktopSolidIcon },
       { label: 'Approval Rules', href: '/dynamic-builder/approvals', icon: CheckBadgeIcon, iconActive: CheckBadgeSolidIcon },
       { label: 'Validation Rules', href: '/dynamic-builder/validations', icon: ClipboardDocumentCheckIcon, iconActive: ClipboardDocumentCheckSolidIcon },
