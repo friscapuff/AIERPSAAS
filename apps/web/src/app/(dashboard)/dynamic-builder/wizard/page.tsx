@@ -96,10 +96,9 @@ const STEP_ICONS = [
 ]
 
 const SCREEN_TYPES = [
-  { value: 'form-list', label: 'Form & List' },
-  { value: 'form-only', label: 'Form Only' },
-  { value: 'list-only', label: 'List Only' },
-  { value: 'dashboard', label: 'Dashboard' },
+  { value: 'FORM_LIST', label: 'Form & List' },
+  { value: 'FORM', label: 'Form Only' },
+  { value: 'LIST', label: 'List Only' },
 ]
 
 const ICON_OPTIONS = [
@@ -166,7 +165,7 @@ export default function ScreenCreationWizard() {
   const [screenName, setScreenName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [description, setDescription] = useState('')
-  const [screenType, setScreenType] = useState('form-list')
+  const [screenType, setScreenType] = useState('FORM_LIST')
   const [screenIcon, setScreenIcon] = useState('TableCellsIcon')
   const [tabs, setTabs] = useState<Tab[]>([
     { id: 'main', name: 'Main', fields: {} },
