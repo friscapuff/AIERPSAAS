@@ -13,6 +13,8 @@ import { AuditModule } from './modules/audit/audit.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { DynamicBuilderModule } from './modules/dynamic-builder/dynamic-builder.module';
+import { SalesOrdersModule } from './modules/sales-orders/sales-orders.module';
+import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
 import * as path from 'path';
 
 @Module({
@@ -45,6 +47,8 @@ import * as path from 'path';
     ReportingModule,
     WebhooksModule,
     DynamicBuilderModule,
+    SalesOrdersModule,
+    PurchaseOrdersModule,
   ],
 })
 export class AppModule {}

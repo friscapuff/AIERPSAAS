@@ -14,6 +14,8 @@ import {
   LinkIcon,
   BuildingOffice2Icon,
   ShieldCheckIcon,
+  ShoppingCartIcon,
+  TruckIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeSolidIcon,
@@ -24,11 +26,13 @@ import {
   DocumentChartBarIcon as DocumentChartBarSolidIcon,
   Cog6ToothIcon as CogSolidIcon,
   LinkIcon as LinkSolidIcon,
+  ShoppingCartIcon as ShoppingCartSolidIcon,
+  TruckIcon as TruckSolidIcon,
 } from '@heroicons/react/24/solid';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 
-// ─── Navigation definition ────────────────────────────────────────────────────
+// ─── Navigation definition ─────────────────────────────────���──────────────────
 interface NavItem {
   label: string;
   href: string;
@@ -59,6 +63,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operations',
     items: [
+      { label: 'Sales Orders', href: '/sales-orders', icon: ShoppingCartIcon, iconActive: ShoppingCartSolidIcon },
+      { label: 'Purchase Orders', href: '/purchase-orders', icon: TruckIcon, iconActive: TruckSolidIcon },
       { label: 'Inventory', href: '/inventory', icon: CubeIcon, iconActive: CubeSolidIcon },
       { label: 'Workflow', href: '/workflow', icon: ArrowPathIcon, iconActive: ArrowPathSolidIcon },
     ],
@@ -121,7 +127,7 @@ function NavItemComponent({ item, collapsed }: NavItemComponentProps) {
   );
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+// ─── Sidebar ─────────────────────────────────────────────────────────��────────
 interface SidebarProps {
   collapsed: boolean;
 }

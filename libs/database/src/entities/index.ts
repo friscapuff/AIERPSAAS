@@ -19,3 +19,7 @@ export * from './webhook-delivery.entity';
 export * from './saved-report.entity';
 export * from './intercompany-agreement.entity';
 export * from './intercompany-transaction.entity';
+export * from './sales-order.entity';
+export * from './sales-order-line.entity';
+export * from './purchase-order.entity';
+export * from './purchase-order-line.entity';
