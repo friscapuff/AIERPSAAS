@@ -1,1066 +1,1340 @@
-'use client';
+'use client'
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
+import { notify } from '@/components/ui/Toast'
 import {
   TableCellsIcon,
-  CheckCircleIcon,
+  DocumentTextIcon,
   CogIcon,
   ShieldCheckIcon,
-  ClipboardDocumentCheckIcon,
-  MapPinIcon,
-  DocumentCheckIcon,
+  CheckBadgeIcon,
+  FolderIcon,
+  EyeIcon,
+  RocketLaunchIcon,
   PlusIcon,
   TrashIcon,
+  ChevronRightIcon,
+  CheckIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  CircleStackIcon,
-} from '@heroicons/react/24/outline';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Textarea } from '@/components/ui/Textarea';
-import { notify } from '@/components/ui/Toast';
-import { useAllTablesGrouped, TableDefinition } from '@/hooks/useAllTables';
-import {
-  useScreens,
-  useValidationRules,
-  useApprovalRules,
-} from '@/hooks/useDynamicPlatform';
-import DetailTableEntryGrid from '@/components/platform/DetailTableEntryGrid';
+  MagnifyingGlassIcon,
+  ClipboardDocumentListIcon,
+  CubeIcon,
+  BanknotesIcon,
+  UsersIcon,
+  BuildingStorefrontIcon,
+  TruckIcon,
+  ArchiveBoxIcon,
+  CalculatorIcon,
+  UserGroupIcon,
+  HomeIcon,
+  ChartBarIcon,
+  Squares2X2Icon,
+  TagIcon,
+  WrenchScrewdriverIcon,
+  StarIcon,
+} from '@heroicons/react/24/outline'
+import { CheckCircleIcon } from '@heroicons/react/24/solid'
+import { useAllTablesGrouped, TableDefinition, useSystemScreens } from '@/hooks/useAllTables'
+import { useScreens, useValidationRules, useApprovalRules } from '@/hooks/useDynamicPlatform'
+import DetailTableEntryGrid from '@/components/platform/DetailTableEntryGrid'
 
-const STEPS = [
-  { number: 1, label: 'Header Table', icon: TableCellsIcon },
-  { number: 2, label: 'Detail Tables', icon: TableCellsIcon },
-  { number: 3, label: 'Data Entry', icon: CircleStackIcon },
-  { number: 4, label: 'Configure', icon: CogIcon },
-  { number: 5, label: 'Validation', icon: ShieldCheckIcon },
-  { number: 6, label: 'Approval', icon: ClipboardDocumentCheckIcon },
-  { number: 7, label: 'Publish', icon: MapPinIcon },
-  { number: 8, label: 'Review', icon: DocumentCheckIcon },
-];
+interface Tab {
+  id: string
+  name: string
+  fields: Record<string, boolean>
+}
 
 interface ValidationRule {
-  id?: string;
-  field: string;
-  operator: string;
-  value: string;
-  errorMessage: string;
-  enabled: boolean;
-  isNew?: boolean;
+  id: string
+  field: string
+  operator: string
+  value: string
+  errorMessage: string
+  enabled: boolean
+}
+
+interface ApprovalLevel {
+  level: number
+  role: string
 }
 
 interface ApprovalRule {
-  id?: string;
-  triggerStatus: string;
-  levels: { role: string }[];
-  targetStatus: string;
-  enabled: boolean;
-  isNew?: boolean;
+  id: string
+  triggerStatus: string
+  levels: ApprovalLevel[]
+  targetStatus: string
 }
 
-export default function ScreenWizardPage() {
-  const router = useRouter();
-  const { systemTables, dynamicTables, allTables } = useAllTablesGrouped();
-  const { createScreen } = useScreens();
-  const { rules: existingValidations } = useValidationRules();
-  const { rules: existingApprovals } = useApprovalRules();
+const STEP_LABELS = [
+  'Header Table',
+  'Detail Tables',
+  'Data Entry',
+  'Configure Screen',
+  'Validations',
+  'Approvals',
+  'Publish',
+  'Review & Create',
+]
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [headerTable, setHeaderTable] = useState&lt;TableDefinition | null&gt;(null);
-  const [detailTables, setDetailTables] = useState&lt;TableDefinition[]&gt;([]);
+const STEP_ICONS = [
+  TableCellsIcon,
+  ClipboardDocumentListIcon,
+  DocumentTextIcon,
+  CogIcon,
+  ShieldCheckIcon,
+  CheckBadgeIcon,
+  FolderIcon,
+  RocketLaunchIcon,
+]
 
-  // Step 3: Data Entry rows per table
-  const [tableData, setTableData] = useState&lt;Record&lt;string, Record&lt;string, any&gt;[]&gt;&gt;({});
+const SCREEN_TYPES = [
+  { value: 'form-list', label: 'Form & List' },
+  { value: 'form-only', label: 'Form Only' },
+  { value: 'list-only', label: 'List Only' },
+  { value: 'dashboard', label: 'Dashboard' },
+]
 
-  // Step 4 state
-  const [screenName, setScreenName] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [description, setDescription] = useState('');
-  const [screenType, setScreenType] = useState('form_and_list');
-  const [icon, setIcon] = useState('');
-  const [includedFields, setIncludedFields] = useState&lt;Record&lt;string, boolean&gt;&gt;({});
+const ICON_OPTIONS = [
+  { value: 'TableCellsIcon', label: 'Table' },
+  { value: 'DocumentTextIcon', label: 'Document' },
+  { value: 'CubeIcon', label: 'Cube' },
+  { value: 'BanknotesIcon', label: 'Banknotes' },
+  { value: 'UsersIcon', label: 'Users' },
+  { value: 'BuildingStorefrontIcon', label: 'Store' },
+  { value: 'TruckIcon', label: 'Truck' },
+  { value: 'ArchiveBoxIcon', label: 'Archive' },
+  { value: 'CalculatorIcon', label: 'Calculator' },
+  { value: 'UserGroupIcon', label: 'User Group' },
+  { value: 'HomeIcon', label: 'Home' },
+  { value: 'ChartBarIcon', label: 'Chart' },
+  { value: 'Squares2X2Icon', label: 'Grid' },
+  { value: 'TagIcon', label: 'Tag' },
+  { value: 'WrenchScrewdriverIcon', label: 'Tools' },
+  { value: 'StarIcon', label: 'Star' },
+  { value: 'ShieldCheckIcon', label: 'Shield' },
+  { value: 'FolderIcon', label: 'Folder' },
+]
 
-  // Step 5 state
-  const [validationRules, setValidationRules] = useState&lt;ValidationRule[]&gt;([]);
-  const [showNewValidation, setShowNewValidation] = useState(false);
-  const [newValidation, setNewValidation] = useState&lt;ValidationRule&gt;({
+const OPERATORS = [
+  { value: 'required', label: 'Required' },
+  { value: 'min', label: 'Minimum' },
+  { value: 'max', label: 'Maximum' },
+  { value: 'equals', label: 'Equals' },
+  { value: 'not_equals', label: 'Not Equals' },
+  { value: 'greater_than', label: 'Greater Than' },
+  { value: 'less_than', label: 'Less Than' },
+  { value: 'contains', label: 'Contains' },
+  { value: 'regex', label: 'Regex Pattern' },
+]
+
+const PUBLISH_LOCATIONS = [
+  { value: 'operations', label: 'Operations' },
+  { value: 'platform', label: 'Platform' },
+  { value: 'financial', label: 'Financial' },
+  { value: 'custom', label: 'Custom Group' },
+]
+
+export default function ScreenCreationWizard() {
+  const router = useRouter()
+  const { systemTables, dynamicTables, allTables } = useAllTablesGrouped()
+  const { createScreen } = useScreens()
+  const { rules: existingValidations } = useValidationRules()
+  const { rules: existingApprovals } = useApprovalRules()
+
+  // Step state
+  const [currentStep, setCurrentStep] = useState(0)
+
+  // Step 1 - Header Table
+  const [headerTable, setHeaderTable] = useState<string>('')
+  const [tableSearch, setTableSearch] = useState('')
+
+  // Step 2 - Detail Tables
+  const [detailTables, setDetailTables] = useState<string[]>([])
+
+  // Step 3 - Data Entry
+  const [initialData, setInitialData] = useState<Record<string, any[]>>({})
+
+  // Step 4 - Configure Screen
+  const [screenName, setScreenName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [description, setDescription] = useState('')
+  const [screenType, setScreenType] = useState('form-list')
+  const [screenIcon, setScreenIcon] = useState('TableCellsIcon')
+  const [tabs, setTabs] = useState<Tab[]>([
+    { id: 'main', name: 'Main', fields: {} },
+  ])
+  const [activeTabId, setActiveTabId] = useState('main')
+  const [newTabName, setNewTabName] = useState('')
+
+  // Step 5 - Validations
+  const [validations, setValidations] = useState<ValidationRule[]>([])
+  const [newValidation, setNewValidation] = useState({
     field: '',
     operator: 'required',
     value: '',
     errorMessage: '',
-    enabled: true,
-    isNew: true,
-  });
+  })
 
-  // Step 6 state
-  const [approvalRules, setApprovalRules] = useState&lt;ApprovalRule[]&gt;([]);
-  const [showNewApproval, setShowNewApproval] = useState(false);
-  const [newApproval, setNewApproval] = useState&lt;ApprovalRule&gt;({
+  // Step 6 - Approvals
+  const [approvals, setApprovals] = useState<ApprovalRule[]>([])
+  const [newApproval, setNewApproval] = useState({
     triggerStatus: '',
-    levels: [{ role: '' }],
+    levels: [{ level: 1, role: '' }] as ApprovalLevel[],
     targetStatus: '',
-    enabled: true,
-    isNew: true,
-  });
+  })
 
-  // Step 7 state
-  const [publishLocation, setPublishLocation] = useState('operations');
-  const [customGroup, setCustomGroup] = useState('');
-  const [addToSidebar, setAddToSidebar] = useState(true);
+  // Step 7 - Publish
+  const [publishLocation, setPublishLocation] = useState('operations')
+  const [customGroup, setCustomGroup] = useState('')
+  const [addToSidebar, setAddToSidebar] = useState(true)
 
-  const [isCreating, setIsCreating] = useState(false);
+  // Derived data
+  const selectedTables = useMemo(() => {
+    const tableIds = [headerTable, ...detailTables].filter(Boolean)
+    return allTables?.filter((t: TableDefinition) => tableIds.includes(t.id)) || []
+  }, [headerTable, detailTables, allTables])
 
-  // Compute all fields from selected tables
-  const allSelectedFields = useMemo(() =&gt; {
-    const tables = [headerTable, ...detailTables].filter(Boolean) as TableDefinition[];
-    return tables.flatMap((t) =&gt;
-      t.fields.map((f) =&gt; ({
-        ...f,
-        tableName: t.name,
-        tableLabel: t.label,
-        key: `${t.name}.${f.name}`,
-      }))
-    );
-  }, [headerTable, detailTables]);
+  const allFields = useMemo(() => {
+    const fields: { tableId: string; tableName: string; tableLabel: string; fieldName: string; fieldLabel: string; fieldType: string }[] = []
+    selectedTables.forEach((table: TableDefinition) => {
+      (table.fields || []).forEach((field) => {
+        fields.push({
+          tableId: table.id,
+          tableName: table.name,
+          tableLabel: table.label,
+          fieldName: field.name,
+          fieldLabel: field.label,
+          fieldType: field.type,
+        })
+      })
+    })
+    return fields
+  }, [selectedTables])
 
-  // Initialize included fields when tables change
-  useMemo(() =&gt; {
-    const fields: Record&lt;string, boolean&gt; = {};
-    allSelectedFields.forEach((f) =&gt; {
-      fields[f.key] = includedFields[f.key] ?? true;
-    });
-    setIncludedFields(fields);
-  }, [allSelectedFields]);
-
-  // All tables that have data entry (header + details)
-  const dataEntryTables = useMemo(() =&gt; {
-    const tables: TableDefinition[] = [];
-    if (headerTable) tables.push(headerTable);
-    tables.push(...detailTables);
-    return tables;
-  }, [headerTable, detailTables]);
-
-  // Auto-generate screen name from header table
-  const handleHeaderSelect = (table: TableDefinition) =&gt; {
-    setHeaderTable(table);
-    if (!screenName) {
-      setScreenName(`${table.name}_screen`);
-      setDisplayName(table.label);
+  const filteredTables = useMemo(() => {
+    const filter = (tables: TableDefinition[]) =>
+      tables.filter((t) =>
+        (t.label || t.name).toLowerCase().includes(tableSearch.toLowerCase())
+      )
+    return {
+      system: filter(systemTables || []),
+      custom: filter(dynamicTables || []),
     }
-  };
+  }, [systemTables, dynamicTables, tableSearch])
 
-  const handleDetailToggle = (table: TableDefinition) =&gt; {
-    setDetailTables((prev) =&gt;
-      prev.some((t) =&gt; t.id === table.id)
-        ? prev.filter((t) =&gt; t.id !== table.id)
-        : [...prev, table]
-    );
-  };
+  const availableDetailTables = useMemo(() => {
+    if (!allTables) return []
+    return allTables.filter((t: TableDefinition) => t.id !== headerTable)
+  }, [allTables, headerTable])
 
-  const handleFieldToggle = (key: string) =&gt; {
-    setIncludedFields((prev) =&gt; ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleTableDataChange = (tableId: string, rows: Record&lt;string, any&gt;[]) =&gt; {
-    setTableData((prev) =&gt; ({ ...prev, [tableId]: rows }));
-  };
-
-  const addValidationRule = () =&gt; {
-    if (!newValidation.field || !newValidation.errorMessage) {
-      notify.error('Field and error message are required');
-      return;
+  // Navigation
+  const canProceed = (): boolean => {
+    switch (currentStep) {
+      case 0:
+        return !!headerTable
+      case 1:
+        return true
+      case 2:
+        return true
+      case 3:
+        return !!screenName && !!displayName
+      case 4:
+        return true
+      case 5:
+        return true
+      case 6:
+        return publishLocation !== 'custom' || !!customGroup.trim()
+      case 7:
+        return true
+      default:
+        return false
     }
-    setValidationRules((prev) =&gt; [...prev, { ...newValidation }]);
-    setNewValidation({ field: '', operator: 'required', value: '', errorMessage: '', enabled: true, isNew: true });
-    setShowNewValidation(false);
-  };
+  }
 
-  const removeValidationRule = (index: number) =&gt; {
-    setValidationRules((prev) =&gt; prev.filter((_, i) =&gt; i !== index));
-  };
-
-  const addApprovalRule = () =&gt; {
-    if (!newApproval.triggerStatus || !newApproval.levels[0]?.role) {
-      notify.error('Trigger status and at least one approval level are required');
-      return;
+  const handleNext = () => {
+    if (currentStep < 7 && canProceed()) {
+      setCurrentStep(currentStep + 1)
     }
-    setApprovalRules((prev) =&gt; [...prev, { ...newApproval }]);
-    setNewApproval({ triggerStatus: '', levels: [{ role: '' }], targetStatus: '', enabled: true, isNew: true });
-    setShowNewApproval(false);
-  };
+  }
 
-  const removeApprovalRule = (index: number) =&gt; {
-    setApprovalRules((prev) =&gt; prev.filter((_, i) =&gt; i !== index));
-  };
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
 
-  const addApprovalLevel = () =&gt; {
-    setNewApproval((prev) =&gt; ({
-      ...prev,
-      levels: [...prev.levels, { role: '' }],
-    }));
-  };
+  // Tab management
+  const addTab = () => {
+    if (!newTabName.trim()) return
+    const id = newTabName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
+    setTabs([...tabs, { id, name: newTabName.trim(), fields: {} }])
+    setNewTabName('')
+    setActiveTabId(id)
+  }
 
-  const handleCreate = async () =&gt; {
-    setIsCreating(true);
+  const removeTab = (tabId: string) => {
+    if (tabId === 'main') return
+    setTabs(tabs.filter((t) => t.id !== tabId))
+    if (activeTabId === tabId) {
+      setActiveTabId('main')
+    }
+  }
+
+  const toggleTabField = (tabId: string, fieldKey: string) => {
+    setTabs(
+      tabs.map((tab) => {
+        if (tab.id !== tabId) return tab
+        const fields = { ...tab.fields }
+        fields[fieldKey] = !fields[fieldKey]
+        return { ...tab, fields }
+      })
+    )
+  }
+
+  // Validation management
+  const addValidation = () => {
+    if (!newValidation.field || !newValidation.errorMessage) return
+    const rule: ValidationRule = {
+      id: 'val-' + Date.now(),
+      ...newValidation,
+      enabled: true,
+    }
+    setValidations([...validations, rule])
+    setNewValidation({ field: '', operator: 'required', value: '', errorMessage: '' })
+  }
+
+  const removeValidation = (id: string) => {
+    setValidations(validations.filter((v) => v.id !== id))
+  }
+
+  const toggleValidation = (id: string) => {
+    setValidations(
+      validations.map((v) => (v.id === id ? { ...v, enabled: !v.enabled } : v))
+    )
+  }
+
+  // Approval management
+  const addApprovalLevel = () => {
+    setNewApproval({
+      ...newApproval,
+      levels: [...newApproval.levels, { level: newApproval.levels.length + 1, role: '' }],
+    })
+  }
+
+  const updateApprovalLevel = (index: number, role: string) => {
+    const levels = [...newApproval.levels]
+    levels[index] = { ...levels[index], role }
+    setNewApproval({ ...newApproval, levels })
+  }
+
+  const removeApprovalLevel = (index: number) => {
+    if (newApproval.levels.length <= 1) return
+    const levels = newApproval.levels.filter((_, i) => i !== index)
+    setNewApproval({ ...newApproval, levels: levels.map((l, i) => ({ ...l, level: i + 1 })) })
+  }
+
+  const addApproval = () => {
+    if (!newApproval.triggerStatus || !newApproval.targetStatus) return
+    if (newApproval.levels.some((l) => !l.role)) return
+    const rule: ApprovalRule = {
+      id: 'apr-' + Date.now(),
+      ...newApproval,
+    }
+    setApprovals([...approvals, rule])
+    setNewApproval({ triggerStatus: '', levels: [{ level: 1, role: '' }], targetStatus: '' })
+  }
+
+  const removeApproval = (id: string) => {
+    setApprovals(approvals.filter((a) => a.id !== id))
+  }
+
+  // Detail table toggle
+  const toggleDetailTable = (tableId: string) => {
+    setDetailTables((prev) =>
+      prev.includes(tableId) ? prev.filter((id) => id !== tableId) : [...prev, tableId]
+    )
+  }
+
+  // Create screen
+  const handleCreate = async () => {
     try {
       await createScreen({
-        name: screenName,
+        headerTable,
+        detailTables,
+        screenName,
         displayName,
         description,
         screenType,
-        icon,
-        headerTable: headerTable!.name,
-        detailTables: detailTables.map((t) =&gt; t.name),
-        fields: Object.entries(includedFields)
-          .filter(([, included]) =&gt; included)
-          .map(([key]) =&gt; key),
-        validationRules: validationRules.filter((r) =&gt; r.enabled),
-        approvalRules: approvalRules.filter((r) =&gt; r.enabled),
+        screenIcon,
+        tabs,
+        validations,
+        approvals,
         publishLocation: publishLocation === 'custom' ? customGroup : publishLocation,
         addToSidebar,
-        initialData: tableData,
-      });
-      notify.success('Screen created successfully!');
-      router.push('/dynamic-builder/screens');
+        initialData,
+      })
+      notify.success('Screen created successfully!')
+      router.push('/dynamic-builder')
     } catch (error: any) {
-      notify.error(error?.message || 'Failed to create screen');
-    } finally {
-      setIsCreating(false);
+      notify.error(error?.message || 'Failed to create screen')
     }
-  };
+  }
 
-  const canProceed = () =&gt; {
-    switch (currentStep) {
-      case 1:
-        return !!headerTable;
-      case 2:
-        return true; // optional
-      case 3:
-        return true; // optional data entry
-      case 4:
-        return !!screenName &amp;&amp; !!displayName;
-      case 5:
-        return true;
-      case 6:
-        return true;
-      case 7:
-        return publishLocation !== 'custom' || !!customGroup;
-      case 8:
-        return true;
-      default:
-        return false;
-    }
-  };
+  // Data entry callback
+  const handleDataChange = (tableId: string, rows: any[]) => {
+    setInitialData((prev) => ({ ...prev, [tableId]: rows }))
+  }
 
-  const handleNext = () =&gt; {
-    if (currentStep &lt; 8) setCurrentStep(currentStep + 1);
-  };
+  // Get data rows count
+  const getDataRowsCount = () => {
+    return Object.values(initialData).reduce((sum, rows) => sum + (rows?.length || 0), 0)
+  }
 
-  const handleBack = () =&gt; {
-    if (currentStep &gt; 1) setCurrentStep(currentStep - 1);
-  };
-
-  // Available tables for detail selection (exclude header)
-  const availableForDetail = allTables.filter((t) =&gt; t.id !== headerTable?.id);
-
-  // Group fields by table for Step 4
-  const fieldsByTable = useMemo(() =&gt; {
-    const grouped: Record&lt;string, typeof allSelectedFields&gt; = {};
-    allSelectedFields.forEach((f) =&gt; {
-      if (!grouped[f.tableLabel]) grouped[f.tableLabel] = [];
-      grouped[f.tableLabel].push(f);
-    });
-    return grouped;
-  }, [allSelectedFields]);
-
-  const renderTableCard = (
-    table: TableDefinition,
-    isSelected: boolean,
-    onClick: () =&gt; void,
-    multiSelect?: boolean
-  ) =&gt; (
-    &lt;Card
-      key={table.id}
-      className={`cursor-pointer p-4 transition-all hover:shadow-md ${
-        isSelected
-          ? 'border-2 border-primary-500 bg-primary-50 dark:bg-primary-950'
-          : 'border border-surface-200 dark:border-surface-700'
-      }`}
-      onClick={onClick}
-    &gt;
-      &lt;div className="flex items-center gap-3"&gt;
-        {multiSelect &amp;&amp; (
-          &lt;input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() =&gt; {}}
-            className="h-4 w-4 rounded border-surface-300 text-primary-600"
-          /&gt;
-        )}
-        &lt;TableCellsIcon className="h-8 w-8 text-primary-500" /&gt;
-        &lt;div className="flex-1"&gt;
-          &lt;p className="font-medium text-surface-900 dark:text-surface-100"&gt;{table.label}&lt;/p&gt;
-          &lt;p className="text-sm text-surface-500"&gt;{table.name}&lt;/p&gt;
-        &lt;/div&gt;
-        &lt;Badge variant="secondary"&gt;{table.fields.length} fields&lt;/Badge&gt;
-      &lt;/div&gt;
-    &lt;/Card&gt;
-  );
-
-  const renderStepIndicator = () =&gt; (
-    &lt;div className="mb-8 flex items-center justify-center"&gt;
-      {STEPS.map((step, index) =&gt; (
-        &lt;div key={step.number} className="flex items-center"&gt;
-          &lt;div className="flex flex-col items-center"&gt;
-            &lt;div
-              className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all ${
-                currentStep &gt; step.number
-                  ? 'border-primary-500 bg-primary-500 text-white'
-                  : currentStep === step.number
-                  ? 'border-primary-500 bg-white text-primary-500 dark:bg-surface-800'
-                  : 'border-surface-300 bg-white text-surface-400 dark:border-surface-600 dark:bg-surface-800'
-              }`}
-            &gt;
-              {currentStep &gt; step.number ? (
-                &lt;CheckCircleIcon className="h-6 w-6" /&gt;
-              ) : (
-                step.number
-              )}
-            &lt;/div&gt;
-            &lt;span
-              className={`mt-1 text-xs ${
-                currentStep &gt;= step.number ? 'text-primary-600 font-medium' : 'text-surface-400'
-              }`}
-            &gt;
-              {step.label}
-            &lt;/span&gt;
-          &lt;/div&gt;
-          {index &lt; STEPS.length - 1 &amp;&amp; (
-            &lt;div
-              className={`mx-2 h-0.5 w-10 ${
-                currentStep &gt; step.number ? 'bg-primary-500' : 'bg-surface-200 dark:bg-surface-700'
-              }`}
-            /&gt;
-          )}
-        &lt;/div&gt;
-      ))}
-    &lt;/div&gt;
-  );
-
-  const renderStep1 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Select Header Table
-        &lt;/h2&gt;
-        &lt;p className="mt-1 text-surface-500"&gt;
-          Choose the main table for your screen (e.g., sales_orders, purchase_orders)
-        &lt;/p&gt;
-      &lt;/div&gt;
-
-      {systemTables.length &gt; 0 &amp;&amp; (
-        &lt;div&gt;
-          &lt;h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500"&gt;
-            System Tables
-          &lt;/h3&gt;
-          &lt;div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"&gt;
-            {systemTables.map((table) =&gt;
-              renderTableCard(table, headerTable?.id === table.id, () =&gt; handleHeaderSelect(table))
+  // Render step indicator
+  const renderStepIndicator = () => (
+    <div className="flex items-center justify-between mb-8 px-2">
+      {STEP_LABELS.map((label, index) => {
+        const Icon = STEP_ICONS[index]
+        const isComplete = index < currentStep
+        const isCurrent = index === currentStep
+        return (
+          <div key={index} className="flex items-center">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  isComplete
+                    ? 'bg-primary-500 text-white'
+                    : isCurrent
+                    ? 'bg-primary-500/20 border-2 border-primary-500 text-primary-500'
+                    : 'bg-surface-800 text-surface-400 border border-surface-700'
+                }`}
+              >
+                {isComplete ? (
+                  <CheckIcon className="w-5 h-5" />
+                ) : (
+                  <Icon className="w-5 h-5" />
+                )}
+              </div>
+              <span
+                className={`text-xs mt-1 text-center max-w-[80px] ${
+                  isCurrent ? 'text-primary-400 font-medium' : 'text-surface-500'
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+            {index < STEP_LABELS.length - 1 && (
+              <div
+                className={`w-8 h-0.5 mx-1 mt-[-16px] ${
+                  index < currentStep ? 'bg-primary-500' : 'bg-surface-700'
+                }`}
+              />
             )}
-          &lt;/div&gt;
-        &lt;/div&gt;
-      )}
+          </div>
+        )
+      })}
+    </div>
+  )
 
-      {dynamicTables.length &gt; 0 &amp;&amp; (
-        &lt;div&gt;
-          &lt;h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500"&gt;
-            Custom Tables
-          &lt;/h3&gt;
-          &lt;div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"&gt;
-            {dynamicTables.map((table) =&gt;
-              renderTableCard(table, headerTable?.id === table.id, () =&gt; handleHeaderSelect(table))
-            )}
-          &lt;/div&gt;
-        &lt;/div&gt;
-      )}
+  // Step 1: Header Table
+  const renderStep1 = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Select Header Table</h2>
+        <p className="text-surface-400 text-sm">
+          Choose the main table for your screen. This will be the primary data source.
+        </p>
+      </div>
 
-      &lt;p className="text-sm text-surface-400"&gt;
-        Don&amp;apos;t see your table?{' '}
-        &lt;a href="/dynamic-builder" className="text-primary-500 hover:underline"&gt;
-          Create one in Dynamic Builder
-        &lt;/a&gt;
-      &lt;/p&gt;
-    &lt;/div&gt;
-  );
+      <div className="relative">
+        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-400" />
+        <Input
+          value={tableSearch}
+          onChange={(e) => setTableSearch(e.target.value)}
+          placeholder="Search tables..."
+          className="pl-10"
+        />
+      </div>
 
-  const renderStep2 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Select Detail &amp;amp; Items Tables
-        &lt;/h2&gt;
-        &lt;p className="mt-1 text-surface-500"&gt;
-          Choose related tables for line items, details, or child records
-        &lt;/p&gt;
-      &lt;/div&gt;
-
-      {availableForDetail.filter((t) =&gt; t.isSystem).length &gt; 0 &amp;&amp; (
-        &lt;div&gt;
-          &lt;h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500"&gt;
-            System Tables
-          &lt;/h3&gt;
-          &lt;div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"&gt;
-            {availableForDetail
-              .filter((t) =&gt; t.isSystem)
-              .map((table) =&gt;
-                renderTableCard(
-                  table,
-                  detailTables.some((d) =&gt; d.id === table.id),
-                  () =&gt; handleDetailToggle(table),
-                  true
-                )
-              )}
-          &lt;/div&gt;
-        &lt;/div&gt;
-      )}
-
-      {availableForDetail.filter((t) =&gt; !t.isSystem).length &gt; 0 &amp;&amp; (
-        &lt;div&gt;
-          &lt;h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500"&gt;
-            Custom Tables
-          &lt;/h3&gt;
-          &lt;div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"&gt;
-            {availableForDetail
-              .filter((t) =&gt; !t.isSystem)
-              .map((table) =&gt;
-                renderTableCard(
-                  table,
-                  detailTables.some((d) =&gt; d.id === table.id),
-                  () =&gt; handleDetailToggle(table),
-                  true
-                )
-              )}
-          &lt;/div&gt;
-        &lt;/div&gt;
-      )}
-
-      &lt;p className="text-sm text-surface-400"&gt;
-        This step is optional. You can skip it if your screen only needs a single table.
-      &lt;/p&gt;
-    &lt;/div&gt;
-  );
-
-  const renderStep3 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Bulk Data Entry
-        &lt;/h2&gt;
-        &lt;p className="mt-1 text-surface-500"&gt;
-          Add initial data to your tables via Excel import, copy from another table, or manual entry.
-          You can also do this later after the screen is created.
-        &lt;/p&gt;
-      &lt;/div&gt;
-
-      {dataEntryTables.length === 0 ? (
-        &lt;Card className="p-8 text-center"&gt;
-          &lt;CircleStackIcon className="mx-auto h-12 w-12 text-surface-300" /&gt;
-          &lt;p className="mt-3 text-surface-500"&gt;No tables selected yet. Go back and select tables first.&lt;/p&gt;
-        &lt;/Card&gt;
-      ) : (
-        &lt;div className="space-y-8"&gt;
-          {dataEntryTables.map((table) =&gt; (
-            &lt;div key={table.id} className="rounded-xl border border-surface-200 dark:border-surface-700 p-4"&gt;
-              &lt;DetailTableEntryGrid
-                table={table}
-                allTables={allTables}
-                rows={tableData[table.id] || []}
-                onChange={(rows) =&gt; handleTableDataChange(table.id, rows)}
-              /&gt;
-            &lt;/div&gt;
-          ))}
-        &lt;/div&gt;
-      )}
-
-      &lt;div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4"&gt;
-        &lt;p className="text-sm text-blue-700 dark:text-blue-300"&gt;
-          &lt;strong&gt;Tip:&lt;/strong&gt; You can import data from Excel/CSV files, copy rows from other tables in the system,
-          or add rows manually. Double-click any cell to edit it. Download a CSV template to prepare your data offline.
-        &lt;/p&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-  );
-
-  const renderStep4 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Configure Your Screen
-        &lt;/h2&gt;
-      &lt;/div&gt;
-
-      &lt;div className="grid grid-cols-1 gap-4 md:grid-cols-2"&gt;
-        &lt;div&gt;
-          &lt;label className="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300"&gt;
-            Screen Name
-          &lt;/label&gt;
-          &lt;Input
-            value={screenName}
-            onChange={(e) =&gt; setScreenName(e.target.value)}
-            placeholder="e.g. sales_orders_screen"
-          /&gt;
-        &lt;/div&gt;
-        &lt;div&gt;
-          &lt;label className="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300"&gt;
-            Display Name
-          &lt;/label&gt;
-          &lt;Input
-            value={displayName}
-            onChange={(e) =&gt; setDisplayName(e.target.value)}
-            placeholder="e.g. Sales Orders"
-          /&gt;
-        &lt;/div&gt;
-        &lt;div className="md:col-span-2"&gt;
-          &lt;label className="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300"&gt;
-            Description
-          &lt;/label&gt;
-          &lt;Textarea
-            value={description}
-            onChange={(e) =&gt; setDescription(e.target.value)}
-            placeholder="Describe the purpose of this screen..."
-            rows={3}
-          /&gt;
-        &lt;/div&gt;
-        &lt;div&gt;
-          &lt;label className="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300"&gt;
-            Screen Type
-          &lt;/label&gt;
-          &lt;Select value={screenType} onChange={(e) =&gt; setScreenType(e.target.value)}&gt;
-            &lt;option value="form_and_list"&gt;Form &amp;amp; List&lt;/option&gt;
-            &lt;option value="form_only"&gt;Form Only&lt;/option&gt;
-            &lt;option value="list_only"&gt;List Only&lt;/option&gt;
-          &lt;/Select&gt;
-        &lt;/div&gt;
-        &lt;div&gt;
-          &lt;label className="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300"&gt;
-            Icon (optional)
-          &lt;/label&gt;
-          &lt;Select value={icon} onChange={(e) =&gt; setIcon(e.target.value)}&gt;
-            &lt;option value=""&gt;Select icon...&lt;/option&gt;
-            &lt;option value="ShoppingCartIcon"&gt;Shopping Cart&lt;/option&gt;
-            &lt;option value="CurrencyDollarIcon"&gt;Currency Dollar&lt;/option&gt;
-            &lt;option value="TruckIcon"&gt;Truck&lt;/option&gt;
-            &lt;option value="ClipboardDocumentListIcon"&gt;Clipboard&lt;/option&gt;
-            &lt;option value="CubeIcon"&gt;Cube (Inventory)&lt;/option&gt;
-            &lt;option value="CalculatorIcon"&gt;Calculator (Finance)&lt;/option&gt;
-            &lt;option value="UserGroupIcon"&gt;User Group&lt;/option&gt;
-            &lt;option value="DocumentTextIcon"&gt;Document&lt;/option&gt;
-            &lt;option value="ChartBarIcon"&gt;Chart Bar&lt;/option&gt;
-            &lt;option value="BuildingOfficeIcon"&gt;Building&lt;/option&gt;
-          &lt;/Select&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-
-      &lt;div className="mt-6"&gt;
-        &lt;h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500"&gt;
-          Fields to Include
-        &lt;/h3&gt;
-        {Object.entries(fieldsByTable).map(([tableLabel, fields]) =&gt; (
-          &lt;div key={tableLabel} className="mb-4"&gt;
-            &lt;h4 className="mb-2 text-sm font-medium text-surface-700 dark:text-surface-300"&gt;
-              {tableLabel}
-            &lt;/h4&gt;
-            &lt;div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3"&gt;
-              {fields.map((field) =&gt; (
-                &lt;label
-                  key={field.key}
-                  className="flex items-center gap-2 rounded border border-surface-200 p-2 dark:border-surface-700"
-                &gt;
-                  &lt;input
-                    type="checkbox"
-                    checked={includedFields[field.key] ?? true}
-                    onChange={() =&gt; handleFieldToggle(field.key)}
-                    className="h-4 w-4 rounded border-surface-300 text-primary-600"
-                  /&gt;
-                  &lt;span className="text-sm text-surface-700 dark:text-surface-300"&gt;
-                    {field.label}
-                  &lt;/span&gt;
-                  &lt;Badge variant="secondary" className="ml-auto text-xs"&gt;
-                    {field.type}
-                  &lt;/Badge&gt;
-                &lt;/label&gt;
-              ))}
-            &lt;/div&gt;
-          &lt;/div&gt;
-        ))}
-      &lt;/div&gt;
-    &lt;/div&gt;
-  );
-
-  const renderStep5 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Validation Rules
-        &lt;/h2&gt;
-        &lt;p className="mt-1 text-surface-500"&gt;
-          Add data quality rules for this screen
-        &lt;/p&gt;
-      &lt;/div&gt;
-
-      {existingValidations &amp;&amp; existingValidations.length &gt; 0 &amp;&amp; (
-        &lt;div className="space-y-2"&gt;
-          &lt;h3 className="text-sm font-semibold text-surface-500"&gt;Existing Rules&lt;/h3&gt;
-          {existingValidations.map((rule: any) =&gt; (
-            &lt;Card key={rule.id} className="flex items-center justify-between p-3"&gt;
-              &lt;div&gt;
-                &lt;p className="text-sm font-medium text-surface-900 dark:text-surface-100"&gt;
-                  {rule.field} — {rule.operator}
-                &lt;/p&gt;
-                &lt;p className="text-xs text-surface-500"&gt;{rule.errorMessage}&lt;/p&gt;
-              &lt;/div&gt;
-              &lt;input
-                type="checkbox"
-                defaultChecked
-                className="h-4 w-4 rounded border-surface-300 text-primary-600"
-              /&gt;
-            &lt;/Card&gt;
-          ))}
-        &lt;/div&gt;
-      )}
-
-      {validationRules.length &gt; 0 &amp;&amp; (
-        &lt;div className="space-y-2"&gt;
-          &lt;h3 className="text-sm font-semibold text-surface-500"&gt;New Rules&lt;/h3&gt;
-          {validationRules.map((rule, index) =&gt; (
-            &lt;Card key={index} className="flex items-center justify-between p-3"&gt;
-              &lt;div&gt;
-                &lt;p className="text-sm font-medium text-surface-900 dark:text-surface-100"&gt;
-                  {rule.field} — {rule.operator} {rule.value &amp;&amp; `(${rule.value})`}
-                &lt;/p&gt;
-                &lt;p className="text-xs text-surface-500"&gt;{rule.errorMessage}&lt;/p&gt;
-              &lt;/div&gt;
-              &lt;button onClick={() =&gt; removeValidationRule(index)} className="text-red-500 hover:text-red-700"&gt;
-                &lt;TrashIcon className="h-4 w-4" /&gt;
-              &lt;/button&gt;
-            &lt;/Card&gt;
-          ))}
-        &lt;/div&gt;
-      )}
-
-      {showNewValidation ? (
-        &lt;Card className="space-y-3 p-4"&gt;
-          &lt;div className="grid grid-cols-1 gap-3 md:grid-cols-2"&gt;
-            &lt;div&gt;
-              &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;Field&lt;/label&gt;
-              &lt;Select
-                value={newValidation.field}
-                onChange={(e) =&gt; setNewValidation({ ...newValidation, field: e.target.value })}
-              &gt;
-                &lt;option value=""&gt;Select field...&lt;/option&gt;
-                {allSelectedFields.map((f) =&gt; (
-                  &lt;option key={f.key} value={f.key}&gt;
-                    {f.tableLabel} &amp;gt; {f.label}
-                  &lt;/option&gt;
-                ))}
-              &lt;/Select&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;Operator&lt;/label&gt;
-              &lt;Select
-                value={newValidation.operator}
-                onChange={(e) =&gt; setNewValidation({ ...newValidation, operator: e.target.value })}
-              &gt;
-                &lt;option value="required"&gt;Required&lt;/option&gt;
-                &lt;option value="min"&gt;Min Value&lt;/option&gt;
-                &lt;option value="max"&gt;Max Value&lt;/option&gt;
-                &lt;option value="regex"&gt;Regex Pattern&lt;/option&gt;
-                &lt;option value="unique"&gt;Unique&lt;/option&gt;
-              &lt;/Select&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;Value&lt;/label&gt;
-              &lt;Input
-                value={newValidation.value}
-                onChange={(e) =&gt; setNewValidation({ ...newValidation, value: e.target.value })}
-                placeholder="Comparison value (if applicable)"
-              /&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;Error Message&lt;/label&gt;
-              &lt;Input
-                value={newValidation.errorMessage}
-                onChange={(e) =&gt; setNewValidation({ ...newValidation, errorMessage: e.target.value })}
-                placeholder="Message shown on validation failure"
-              /&gt;
-            &lt;/div&gt;
-          &lt;/div&gt;
-          &lt;div className="flex gap-2"&gt;
-            &lt;Button onClick={addValidationRule} size="sm"&gt;
-              Add Rule
-            &lt;/Button&gt;
-            &lt;Button onClick={() =&gt; setShowNewValidation(false)} variant="ghost" size="sm"&gt;
-              Cancel
-            &lt;/Button&gt;
-          &lt;/div&gt;
-        &lt;/Card&gt;
-      ) : (
-        &lt;Button onClick={() =&gt; setShowNewValidation(true)} variant="outline"&gt;
-          &lt;PlusIcon className="mr-2 h-4 w-4" /&gt;
-          Create New Validation Rule
-        &lt;/Button&gt;
-      )}
-    &lt;/div&gt;
-  );
-
-  const renderStep6 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Approval &amp;amp; Workflow
-        &lt;/h2&gt;
-        &lt;p className="mt-1 text-surface-500"&gt;
-          Set up approval workflows for documents on this screen
-        &lt;/p&gt;
-      &lt;/div&gt;
-
-      {existingApprovals &amp;&amp; existingApprovals.length &gt; 0 &amp;&amp; (
-        &lt;div className="space-y-2"&gt;
-          &lt;h3 className="text-sm font-semibold text-surface-500"&gt;Existing Approval Rules&lt;/h3&gt;
-          {existingApprovals.map((rule: any) =&gt; (
-            &lt;Card key={rule.id} className="flex items-center justify-between p-3"&gt;
-              &lt;div&gt;
-                &lt;p className="text-sm font-medium text-surface-900 dark:text-surface-100"&gt;
-                  When status = &amp;quot;{rule.triggerStatus}&amp;quot;
-                &lt;/p&gt;
-                &lt;p className="text-xs text-surface-500"&gt;
-                  {rule.levels?.length || 0} approval level(s)
-                &lt;/p&gt;
-              &lt;/div&gt;
-              &lt;input
-                type="checkbox"
-                defaultChecked
-                className="h-4 w-4 rounded border-surface-300 text-primary-600"
-              /&gt;
-            &lt;/Card&gt;
-          ))}
-        &lt;/div&gt;
-      )}
-
-      {approvalRules.length &gt; 0 &amp;&amp; (
-        &lt;div className="space-y-2"&gt;
-          &lt;h3 className="text-sm font-semibold text-surface-500"&gt;New Approval Rules&lt;/h3&gt;
-          {approvalRules.map((rule, index) =&gt; (
-            &lt;Card key={index} className="flex items-center justify-between p-3"&gt;
-              &lt;div&gt;
-                &lt;p className="text-sm font-medium text-surface-900 dark:text-surface-100"&gt;
-                  Trigger: &amp;quot;{rule.triggerStatus}&amp;quot; → Target: &amp;quot;{rule.targetStatus}&amp;quot;
-                &lt;/p&gt;
-                &lt;p className="text-xs text-surface-500"&gt;
-                  {rule.levels.length} level(s): {rule.levels.map((l) =&gt; l.role).join(', ')}
-                &lt;/p&gt;
-              &lt;/div&gt;
-              &lt;button onClick={() =&gt; removeApprovalRule(index)} className="text-red-500 hover:text-red-700"&gt;
-                &lt;TrashIcon className="h-4 w-4" /&gt;
-              &lt;/button&gt;
-            &lt;/Card&gt;
-          ))}
-        &lt;/div&gt;
-      )}
-
-      {showNewApproval ? (
-        &lt;Card className="space-y-3 p-4"&gt;
-          &lt;div className="grid grid-cols-1 gap-3 md:grid-cols-2"&gt;
-            &lt;div&gt;
-              &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;
-                Trigger Status
-              &lt;/label&gt;
-              &lt;Select
-                value={newApproval.triggerStatus}
-                onChange={(e) =&gt; setNewApproval({ ...newApproval, triggerStatus: e.target.value })}
-              &gt;
-                &lt;option value=""&gt;Select status...&lt;/option&gt;
-                &lt;option value="submitted"&gt;Submitted&lt;/option&gt;
-                &lt;option value="pending_approval"&gt;Pending Approval&lt;/option&gt;
-                &lt;option value="in_review"&gt;In Review&lt;/option&gt;
-                &lt;option value="draft"&gt;Draft&lt;/option&gt;
-              &lt;/Select&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;
-                Target Status (after approval)
-              &lt;/label&gt;
-              &lt;Select
-                value={newApproval.targetStatus}
-                onChange={(e) =&gt; setNewApproval({ ...newApproval, targetStatus: e.target.value })}
-              &gt;
-                &lt;option value=""&gt;Select target...&lt;/option&gt;
-                &lt;option value="approved"&gt;Approved&lt;/option&gt;
-                &lt;option value="confirmed"&gt;Confirmed&lt;/option&gt;
-                &lt;option value="active"&gt;Active&lt;/option&gt;
-                &lt;option value="posted"&gt;Posted&lt;/option&gt;
-              &lt;/Select&gt;
-            &lt;/div&gt;
-          &lt;/div&gt;
-
-          &lt;div&gt;
-            &lt;label className="mb-1 block text-xs font-medium text-surface-600"&gt;
-              Approval Levels
-            &lt;/label&gt;
-            {newApproval.levels.map((level, i) =&gt; (
-              &lt;div key={i} className="mb-2 flex items-center gap-2"&gt;
-                &lt;span className="text-xs text-surface-500"&gt;Level {i + 1}:&lt;/span&gt;
-                &lt;Select
-                  value={level.role}
-                  onChange={(e) =&gt; {
-                    const levels = [...newApproval.levels];
-                    levels[i] = { role: e.target.value };
-                    setNewApproval({ ...newApproval, levels });
-                  }}
-                  className="flex-1"
-                &gt;
-                  &lt;option value=""&gt;Select role...&lt;/option&gt;
-                  &lt;option value="manager"&gt;Manager&lt;/option&gt;
-                  &lt;option value="director"&gt;Director&lt;/option&gt;
-                  &lt;option value="finance"&gt;Finance&lt;/option&gt;
-                  &lt;option value="ceo"&gt;CEO&lt;/option&gt;
-                  &lt;option value="admin"&gt;Admin&lt;/option&gt;
-                &lt;/Select&gt;
-              &lt;/div&gt;
+      {filteredTables.system.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-surface-300 mb-3 flex items-center gap-2">
+            <Badge variant="default">System</Badge>
+            Tables
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredTables.system.map((table: TableDefinition) => (
+              <Card
+                key={table.id}
+                className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
+                  headerTable === table.id
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-surface-700'
+                }`}
+                onClick={() => setHeaderTable(table.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      headerTable === table.id ? 'bg-primary-500/20' : 'bg-surface-800'
+                    }`}
+                  >
+                    <TableCellsIcon
+                      className={`w-5 h-5 ${
+                        headerTable === table.id ? 'text-primary-400' : 'text-surface-400'
+                      }`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-surface-100 truncate">{table.label}</p>
+                    <p className="text-xs text-surface-500">{table.name} - {table.fields?.length || 0} fields</p>
+                  </div>
+                  {headerTable === table.id && (
+                    <CheckCircleIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                  )}
+                </div>
+              </Card>
             ))}
-            &lt;Button onClick={addApprovalLevel} variant="ghost" size="sm"&gt;
-              &lt;PlusIcon className="mr-1 h-3 w-3" /&gt; Add Level
-            &lt;/Button&gt;
-          &lt;/div&gt;
-
-          &lt;div className="flex gap-2"&gt;
-            &lt;Button onClick={addApprovalRule} size="sm"&gt;
-              Add Approval Rule
-            &lt;/Button&gt;
-            &lt;Button onClick={() =&gt; setShowNewApproval(false)} variant="ghost" size="sm"&gt;
-              Cancel
-            &lt;/Button&gt;
-          &lt;/div&gt;
-        &lt;/Card&gt;
-      ) : (
-        &lt;Button onClick={() =&gt; setShowNewApproval(true)} variant="outline"&gt;
-          &lt;PlusIcon className="mr-2 h-4 w-4" /&gt;
-          Create New Approval Rule
-        &lt;/Button&gt;
+          </div>
+        </div>
       )}
-    &lt;/div&gt;
-  );
 
-  const renderStep7 = () =&gt; (
-    &lt;div className="space-y-6"&gt;
-      &lt;div&gt;
-        &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-          Where to Publish
-        &lt;/h2&gt;
-        &lt;p className="mt-1 text-surface-500"&gt;
-          Choose where this screen appears in the navigation
-        &lt;/p&gt;
-      &lt;/div&gt;
+      {filteredTables.custom.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-surface-300 mb-3 flex items-center gap-2">
+            <Badge variant="secondary">Custom</Badge>
+            Dynamic Tables
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredTables.custom.map((table: TableDefinition) => (
+              <Card
+                key={table.id}
+                className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
+                  headerTable === table.id
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-surface-700'
+                }`}
+                onClick={() => setHeaderTable(table.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      headerTable === table.id ? 'bg-primary-500/20' : 'bg-surface-800'
+                    }`}
+                  >
+                    <CubeIcon
+                      className={`w-5 h-5 ${
+                        headerTable === table.id ? 'text-primary-400' : 'text-surface-400'
+                      }`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-surface-100 truncate">{table.label}</p>
+                    <p className="text-xs text-surface-500">{table.name} - {table.fields?.length || 0} fields</p>
+                  </div>
+                  {headerTable === table.id && (
+                    <CheckCircleIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 
-      &lt;div className="space-y-3"&gt;
-        {[
-          { value: 'operations', label: 'Under "Operations" section' },
-          { value: 'platform', label: 'Under "Platform" section' },
-          { value: 'financial', label: 'Under "Financial" section' },
-          { value: 'custom', label: 'Custom sidebar group' },
-        ].map((option) =&gt; (
-          &lt;label
-            key={option.value}
-            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-all ${
-              publishLocation === option.value
-                ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
-                : 'border-surface-200 dark:border-surface-700'
+  // Step 2: Detail Tables
+  const renderStep2 = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Select Detail Tables</h2>
+        <p className="text-surface-400 text-sm">
+          Choose line item or detail tables to include with the header. This step is optional.
+        </p>
+      </div>
+
+      {detailTables.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {detailTables.map((tableId) => {
+            const table = allTables?.find((t: TableDefinition) => t.id === tableId)
+            return (
+              <Badge key={tableId} variant="default" className="px-3 py-1">
+                {table?.label || table?.name || tableId}
+                <button
+                  onClick={() => toggleDetailTable(tableId)}
+                  className="ml-2 text-surface-300 hover:text-white"
+                >
+                  x
+                </button>
+              </Badge>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {availableDetailTables.map((table: TableDefinition) => (
+          <Card
+            key={table.id}
+            className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
+              detailTables.includes(table.id)
+                ? 'border-primary-500 bg-primary-500/10'
+                : 'border-surface-700'
             }`}
-          &gt;
-            &lt;input
-              type="radio"
-              name="publishLocation"
-              value={option.value}
-              checked={publishLocation === option.value}
-              onChange={(e) =&gt; setPublishLocation(e.target.value)}
-              className="h-4 w-4 text-primary-600"
-            /&gt;
-            &lt;span className="text-surface-900 dark:text-surface-100"&gt;{option.label}&lt;/span&gt;
-          &lt;/label&gt;
+            onClick={() => toggleDetailTable(table.id)}
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={detailTables.includes(table.id)}
+                onChange={() => toggleDetailTable(table.id)}
+                className="w-4 h-4 rounded border-surface-600 text-primary-500 focus:ring-primary-500"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-surface-100">{table.label}</p>
+                <p className="text-xs text-surface-500">{table.name} - {table.fields?.length || 0} fields</p>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {table.isSystem ? 'System' : 'Custom'}
+              </Badge>
+            </div>
+          </Card>
         ))}
+      </div>
+    </div>
+  )
 
-        {publishLocation === 'custom' &amp;&amp; (
-          &lt;div className="ml-8"&gt;
-            &lt;Input
-              value={customGroup}
-              onChange={(e) =&gt; setCustomGroup(e.target.value)}
-              placeholder="Enter custom group name..."
-            /&gt;
-          &lt;/div&gt;
-        )}
-      &lt;/div&gt;
+  // Step 3: Data Entry
+  const renderStep3 = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Initial Data Entry</h2>
+        <p className="text-surface-400 text-sm">
+          Optionally add initial data for each table. You can import from Excel, copy from another
+          table, or add rows manually.
+        </p>
+      </div>
 
-      &lt;label className="flex items-center gap-3"&gt;
-        &lt;input
-          type="checkbox"
-          checked={addToSidebar}
-          onChange={(e) =&gt; setAddToSidebar(e.target.checked)}
-          className="h-4 w-4 rounded border-surface-300 text-primary-600"
-        /&gt;
-        &lt;span className="text-surface-700 dark:text-surface-300"&gt;Add to sidebar immediately&lt;/span&gt;
-      &lt;/label&gt;
-    &lt;/div&gt;
-  );
+      {selectedTables.length === 0 ? (
+        <Card className="p-8 text-center border-surface-700">
+          <DocumentTextIcon className="w-12 h-12 text-surface-500 mx-auto mb-3" />
+          <p className="text-surface-400">No tables selected yet.</p>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {selectedTables.map((table: TableDefinition) => (
+            <div key={table.id}>
+              <h3 className="text-sm font-medium text-surface-200 mb-2 flex items-center gap-2">
+                <TableCellsIcon className="w-4 h-4 text-primary-400" />
+                {table.name}
+                {initialData[table.id]?.length ? (
+                  <Badge variant="default" className="text-xs">
+                    {initialData[table.id].length} rows
+                  </Badge>
+                ) : null}
+              </h3>
+              <DetailTableEntryGrid
+                table={table}
+                allTables={allTables || []}
+                rows={initialData[table.id] || []}
+                onChange={(rows: any[]) => handleDataChange(table.id, rows)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
-  const renderStep8 = () =&gt; {
-    const totalDataRows = Object.values(tableData).reduce((sum, rows) =&gt; sum + rows.length, 0);
+  // Step 4: Configure Screen
+  const renderStep4 = () => {
+    const activeTab = tabs.find((t) => t.id === activeTabId)
+
     return (
-      &lt;div className="space-y-6"&gt;
-        &lt;div&gt;
-          &lt;h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100"&gt;
-            Review &amp;amp; Create
-          &lt;/h2&gt;
-        &lt;/div&gt;
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-surface-100 mb-2">Configure Screen</h2>
+          <p className="text-surface-400 text-sm">
+            Set up the screen properties and organize fields into tabs.
+          </p>
+        </div>
 
-        &lt;Card className="space-y-4 p-6"&gt;
-          &lt;div className="grid grid-cols-1 gap-4 md:grid-cols-2"&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Header Table&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {headerTable?.label || '—'}
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Detail Tables&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {detailTables.length &gt; 0
-                  ? detailTables.map((t) =&gt; t.label).join(', ')
-                  : 'None'}
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Screen Name&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;{screenName}&lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Display Name&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;{displayName}&lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Screen Type&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {screenType === 'form_and_list'
-                  ? 'Form &amp; List'
-                  : screenType === 'form_only'
-                  ? 'Form Only'
-                  : 'List Only'}
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Fields Included&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {Object.values(includedFields).filter(Boolean).length} of {allSelectedFields.length}
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Initial Data Rows&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {totalDataRows} row(s) across {Object.keys(tableData).filter(k =&gt; tableData[k].length &gt; 0).length} table(s)
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Validation Rules&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {validationRules.filter((r) =&gt; r.enabled).length} rule(s)
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Approval Rules&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {approvalRules.filter((r) =&gt; r.enabled).length} rule(s)
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Publish Location&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {publishLocation === 'custom' ? customGroup : publishLocation}
-              &lt;/p&gt;
-            &lt;/div&gt;
-            &lt;div&gt;
-              &lt;p className="text-xs font-semibold uppercase text-surface-500"&gt;Add to Sidebar&lt;/p&gt;
-              &lt;p className="text-surface-900 dark:text-surface-100"&gt;
-                {addToSidebar ? 'Yes' : 'No'}
-              &lt;/p&gt;
-            &lt;/div&gt;
-          &lt;/div&gt;
-        &lt;/Card&gt;
-      &lt;/div&gt;
-    );
-  };
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1">
+              Screen Name <span className="text-red-400">*</span>
+            </label>
+            <Input
+              value={screenName}
+              onChange={(e) => setScreenName(e.target.value)}
+              placeholder="e.g. sales-orders"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1">
+              Display Name <span className="text-red-400">*</span>
+            </label>
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. Sales Orders"
+            />
+          </div>
+        </div>
 
-  const renderCurrentStep = () =&gt; {
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1">Description</label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe what this screen is for..."
+            rows={3}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1">Screen Type</label>
+            <Select value={screenType} onChange={(e) => setScreenType(e.target.value)}>
+              {SCREEN_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1">Icon</label>
+            <Select value={screenIcon} onChange={(e) => setScreenIcon(e.target.value)}>
+              {ICON_OPTIONS.map((icon) => (
+                <option key={icon.value} value={icon.value}>
+                  {icon.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        {/* Tabs Section */}
+        <div className="border-t border-surface-700 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-surface-100">Screen Tabs</h3>
+            <div className="flex items-center gap-2">
+              <Input
+                value={newTabName}
+                onChange={(e) => setNewTabName(e.target.value)}
+                placeholder="New tab name..."
+                className="w-40"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') addTab()
+                }}
+              />
+              <Button onClick={addTab} variant="secondary" size="sm">
+                <PlusIcon className="w-4 h-4 mr-1" />
+                Add Tab
+              </Button>
+            </div>
+          </div>
+
+          {/* Tab Headers */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {tabs.map((tab) => (
+              <div
+                key={tab.id}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                  activeTabId === tab.id
+                    ? 'bg-primary-500/20 border border-primary-500 text-primary-300'
+                    : 'bg-surface-800 border border-surface-700 text-surface-300 hover:border-surface-600'
+                }`}
+                onClick={() => setActiveTabId(tab.id)}
+              >
+                <span className="text-sm font-medium">{tab.name}</span>
+                {tab.id !== 'main' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeTab(tab.id)
+                    }}
+                    className="text-surface-500 hover:text-red-400 ml-1"
+                  >
+                    <TrashIcon className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Tab Field Configuration */}
+          {activeTab && (
+            <Card className="p-4 border-surface-700">
+              <h4 className="text-sm font-medium text-surface-200 mb-3">
+                Fields for tab: <span className="text-primary-400">{activeTab.name}</span>
+              </h4>
+              {selectedTables.length === 0 ? (
+                <p className="text-sm text-surface-500">No tables selected.</p>
+              ) : (
+                <div className="space-y-4">
+                  {selectedTables.map((table: TableDefinition) => (
+                    <div key={table.id}>
+                      <p className="text-xs font-medium text-surface-400 uppercase tracking-wide mb-2">
+                        {table.name}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {(table.fields || []).map((field) => {
+                          const fieldKey = `${table.id}.${field.name}`
+                          const isChecked = activeTab.fields[fieldKey] !== false
+                          return (
+                            <label
+                              key={fieldKey}
+                              className="flex items-center gap-2 text-sm text-surface-300 cursor-pointer hover:text-surface-100"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleTabField(activeTab.id, fieldKey)}
+                                className="w-3.5 h-3.5 rounded border-surface-600 text-primary-500 focus:ring-primary-500"
+                              />
+                              {field.label}
+                              <span className="text-xs text-surface-500 ml-1">({field.type})</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Step 5: Validations
+  const renderStep5 = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Validation Rules</h2>
+        <p className="text-surface-400 text-sm">
+          Define validation rules for your screen fields. Existing rules can be toggled on/off.
+        </p>
+      </div>
+
+      {/* Existing validation rules */}
+      {existingValidations && existingValidations.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-surface-300 mb-2">Existing Rules</h3>
+          <div className="space-y-2">
+            {existingValidations.map((rule: any) => (
+              <Card key={rule.id} className="p-3 border-surface-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-surface-200">{rule.field}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {rule.operator}
+                    </Badge>
+                    {rule.value && (
+                      <span className="text-xs text-surface-400">{rule.value}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-surface-500">{rule.errorMessage}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Custom validation rules */}
+      {validations.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-surface-300 mb-2">Custom Rules</h3>
+          <div className="space-y-2">
+            {validations.map((rule) => (
+              <Card key={rule.id} className="p-3 border-surface-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={() => toggleValidation(rule.id)}
+                      className="w-4 h-4 rounded border-surface-600 text-primary-500"
+                    />
+                    <span className="text-sm text-surface-200">{rule.field}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {rule.operator}
+                    </Badge>
+                    {rule.value && (
+                      <span className="text-xs text-surface-400">{rule.value}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-surface-500">{rule.errorMessage}</span>
+                    <button
+                      onClick={() => removeValidation(rule.id)}
+                      className="text-surface-500 hover:text-red-400"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add new validation */}
+      <Card className="p-4 border-surface-700">
+        <h3 className="text-sm font-medium text-surface-200 mb-3">Add Validation Rule</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Field</label>
+            <Select
+              value={newValidation.field}
+              onChange={(e) => setNewValidation({ ...newValidation, field: e.target.value })}
+            >
+              <option value="">Select field...</option>
+              {allFields.map((f) => (
+                <option key={`${f.tableId}.${f.fieldName}`} value={`${f.tableName}.${f.fieldName}`}>
+                  {f.tableLabel} &gt; {f.fieldLabel}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Operator</label>
+            <Select
+              value={newValidation.operator}
+              onChange={(e) => setNewValidation({ ...newValidation, operator: e.target.value })}
+            >
+              {OPERATORS.map((op) => (
+                <option key={op.value} value={op.value}>
+                  {op.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Value</label>
+            <Input
+              value={newValidation.value}
+              onChange={(e) => setNewValidation({ ...newValidation, value: e.target.value })}
+              placeholder="Comparison value"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Error Message</label>
+            <Input
+              value={newValidation.errorMessage}
+              onChange={(e) =>
+                setNewValidation({ ...newValidation, errorMessage: e.target.value })
+              }
+              placeholder="Error message"
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <Button onClick={addValidation} variant="secondary" size="sm">
+            <PlusIcon className="w-4 h-4 mr-1" />
+            Add Rule
+          </Button>
+        </div>
+      </Card>
+    </div>
+  )
+
+  // Step 6: Approvals
+  const renderStep6 = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Approval Rules</h2>
+        <p className="text-surface-400 text-sm">
+          Configure approval workflows with multiple levels and role-based routing.
+        </p>
+      </div>
+
+      {/* Existing approval rules */}
+      {existingApprovals && existingApprovals.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-surface-300 mb-2">Existing Approval Rules</h3>
+          <div className="space-y-2">
+            {existingApprovals.map((rule: any) => (
+              <Card key={rule.id} className="p-3 border-surface-700">
+                <div className="flex items-center gap-3">
+                  <Badge variant="default">{rule.triggerStatus}</Badge>
+                  <ChevronRightIcon className="w-4 h-4 text-surface-500" />
+                  <span className="text-sm text-surface-300">
+                    {rule.levels?.length || 0} level(s)
+                  </span>
+                  <ChevronRightIcon className="w-4 h-4 text-surface-500" />
+                  <Badge variant="secondary">{rule.targetStatus}</Badge>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Custom approval rules */}
+      {approvals.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-surface-300 mb-2">Custom Approval Rules</h3>
+          <div className="space-y-2">
+            {approvals.map((rule) => (
+              <Card key={rule.id} className="p-3 border-surface-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="default">{rule.triggerStatus}</Badge>
+                    <ChevronRightIcon className="w-4 h-4 text-surface-500" />
+                    {rule.levels.map((level, i) => (
+                      <span key={i} className="text-sm text-surface-300">
+                        L{level.level}: {level.role}
+                        {i < rule.levels.length - 1 ? ' → ' : ''}
+                      </span>
+                    ))}
+                    <ChevronRightIcon className="w-4 h-4 text-surface-500" />
+                    <Badge variant="secondary">{rule.targetStatus}</Badge>
+                  </div>
+                  <button
+                    onClick={() => removeApproval(rule.id)}
+                    className="text-surface-500 hover:text-red-400"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add new approval */}
+      <Card className="p-4 border-surface-700">
+        <h3 className="text-sm font-medium text-surface-200 mb-3">Add Approval Rule</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-surface-400 mb-1">Trigger Status</label>
+              <Input
+                value={newApproval.triggerStatus}
+                onChange={(e) =>
+                  setNewApproval({ ...newApproval, triggerStatus: e.target.value })
+                }
+                placeholder="e.g. Submitted"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-surface-400 mb-1">Target Status</label>
+              <Input
+                value={newApproval.targetStatus}
+                onChange={(e) =>
+                  setNewApproval({ ...newApproval, targetStatus: e.target.value })
+                }
+                placeholder="e.g. Approved"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs text-surface-400">Approval Levels</label>
+              <Button onClick={addApprovalLevel} variant="ghost" size="sm">
+                <PlusIcon className="w-3 h-3 mr-1" />
+                Add Level
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {newApproval.levels.map((level, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-xs text-surface-500 w-12">L{level.level}</span>
+                  <Input
+                    value={level.role}
+                    onChange={(e) => updateApprovalLevel(index, e.target.value)}
+                    placeholder="Role (e.g. Manager, Director)"
+                    className="flex-1"
+                  />
+                  {newApproval.levels.length > 1 && (
+                    <button
+                      onClick={() => removeApprovalLevel(index)}
+                      className="text-surface-500 hover:text-red-400"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={addApproval} variant="secondary" size="sm">
+              <PlusIcon className="w-4 h-4 mr-1" />
+              Add Approval Rule
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+
+  // Step 7: Publish
+  const renderStep7 = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Publish Location</h2>
+        <p className="text-surface-400 text-sm">
+          Choose where this screen will appear in the navigation.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {PUBLISH_LOCATIONS.map((loc) => (
+          <Card
+            key={loc.value}
+            className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
+              publishLocation === loc.value
+                ? 'border-primary-500 bg-primary-500/10'
+                : 'border-surface-700'
+            }`}
+            onClick={() => setPublishLocation(loc.value)}
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="radio"
+                name="publishLocation"
+                checked={publishLocation === loc.value}
+                onChange={() => setPublishLocation(loc.value)}
+                className="w-4 h-4 text-primary-500 border-surface-600 focus:ring-primary-500"
+              />
+              <span className="text-sm font-medium text-surface-200">{loc.label}</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {publishLocation === 'custom' && (
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1">
+            Custom Group Name <span className="text-red-400">*</span>
+          </label>
+          <Input
+            value={customGroup}
+            onChange={(e) => setCustomGroup(e.target.value)}
+            placeholder="e.g. HR Management"
+          />
+        </div>
+      )}
+
+      <div className="border-t border-surface-700 pt-4">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={addToSidebar}
+            onChange={(e) => setAddToSidebar(e.target.checked)}
+            className="w-4 h-4 rounded border-surface-600 text-primary-500 focus:ring-primary-500"
+          />
+          <span className="text-sm text-surface-200">Add to sidebar immediately</span>
+        </label>
+      </div>
+    </div>
+  )
+
+  // Step 8: Review & Create
+  const renderStep8 = () => {
+    const headerTableObj = allTables?.find((t: TableDefinition) => t.id === headerTable)
+    const headerTableName = headerTableObj?.label || headerTableObj?.name || headerTable
+    const detailTableNames = detailTables.map(
+      (id) => {
+        const t = allTables?.find((t: TableDefinition) => t.id === id)
+        return t?.label || t?.name || id
+      }
+    )
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-surface-100 mb-2">Review & Create</h2>
+          <p className="text-surface-400 text-sm">
+            Review your screen configuration before creating.
+          </p>
+        </div>
+
+        <Card className="p-6 border-surface-700 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Screen Name</p>
+              <p className="text-sm text-surface-100 font-medium">{screenName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Display Name</p>
+              <p className="text-sm text-surface-100 font-medium">{displayName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Screen Type</p>
+              <p className="text-sm text-surface-100">
+                {SCREEN_TYPES.find((t) => t.value === screenType)?.label}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Icon</p>
+              <p className="text-sm text-surface-100">
+                {ICON_OPTIONS.find((i) => i.value === screenIcon)?.label}
+              </p>
+            </div>
+          </div>
+
+          {description && (
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Description</p>
+              <p className="text-sm text-surface-300">{description}</p>
+            </div>
+          )}
+
+          <div className="border-t border-surface-700 pt-4">
+            <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Header Table</p>
+            <Badge variant="default">{headerTableName}</Badge>
+          </div>
+
+          {detailTableNames.length > 0 && (
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">
+                Detail Tables
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {detailTableNames.map((name, i) => (
+                  <Badge key={i} variant="secondary">
+                    {name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-surface-700 pt-4">
+            <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Tabs</p>
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => (
+                <Badge key={tab.id} variant="default">
+                  {tab.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {getDataRowsCount() > 0 && (
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide mb-1">
+                Initial Data Rows
+              </p>
+              <p className="text-sm text-surface-200">{getDataRowsCount()} rows</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-surface-700 pt-4">
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Validations</p>
+              <p className="text-sm text-surface-200">{validations.length} rule(s)</p>
+            </div>
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Approvals</p>
+              <p className="text-sm text-surface-200">{approvals.length} rule(s)</p>
+            </div>
+            <div>
+              <p className="text-xs text-surface-500 uppercase tracking-wide">Location</p>
+              <p className="text-sm text-surface-200">
+                {publishLocation === 'custom'
+                  ? customGroup
+                  : PUBLISH_LOCATIONS.find((l) => l.value === publishLocation)?.label}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // Render current step
+  const renderCurrentStep = () => {
     switch (currentStep) {
+      case 0:
+        return renderStep1()
       case 1:
-        return renderStep1();
+        return renderStep2()
       case 2:
-        return renderStep2();
+        return renderStep3()
       case 3:
-        return renderStep3();
+        return renderStep4()
       case 4:
-        return renderStep4();
+        return renderStep5()
       case 5:
-        return renderStep5();
+        return renderStep6()
       case 6:
-        return renderStep6();
+        return renderStep7()
       case 7:
-        return renderStep7();
-      case 8:
-        return renderStep8();
+        return renderStep8()
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
-    &lt;div className="mx-auto max-w-5xl px-4 py-8"&gt;
-      &lt;div className="mb-6"&gt;
-        &lt;h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100"&gt;
-          Screen Creation Wizard
-        &lt;/h1&gt;
-        &lt;p className="text-surface-500"&gt;
-          Create a new screen with tables, data import, validations, and workflows
-        &lt;/p&gt;
-      &lt;/div&gt;
+    <div className="min-h-screen bg-surface-950 p-6">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-surface-50">Screen Creation Wizard</h1>
+          <p className="text-surface-400 mt-1">
+            Create a new dynamic screen in {STEP_LABELS.length} steps
+          </p>
+        </div>
 
-      {renderStepIndicator()}
+        {/* Step Indicator */}
+        {renderStepIndicator()}
 
-      &lt;Card className="p-6"&gt;{renderCurrentStep()}&lt;/Card&gt;
+        {/* Step Content */}
+        <Card className="p-6 border-surface-700 mb-6">{renderCurrentStep()}</Card>
 
-      {/* Navigation buttons */}
-      &lt;div className="mt-6 flex items-center justify-between"&gt;
-        &lt;Button
-          onClick={handleBack}
-          variant="outline"
-          disabled={currentStep === 1}
-        &gt;
-          &lt;ArrowLeftIcon className="mr-2 h-4 w-4" /&gt;
-          Back
-        &lt;/Button&gt;
+        {/* Navigation */}
+        <div className="flex items-center justify-between">
+          <Button
+            onClick={handleBack}
+            variant="secondary"
+            disabled={currentStep === 0}
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
+            Back
+          </Button>
 
-        {currentStep &lt; 8 ? (
-          &lt;Button onClick={handleNext} disabled={!canProceed()}&gt;
-            Next
-            &lt;ArrowRightIcon className="ml-2 h-4 w-4" /&gt;
-          &lt;/Button&gt;
-        ) : (
-          &lt;Button onClick={handleCreate} disabled={isCreating || !canProceed()}&gt;
-            {isCreating ? 'Creating...' : 'Create Screen'}
-          &lt;/Button&gt;
-        )}
-      &lt;/div&gt;
-    &lt;/div&gt;
-  );
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-surface-500">
+              Step {currentStep + 1} of {STEP_LABELS.length}
+            </span>
+          </div>
+
+          {currentStep < 7 ? (
+            <Button onClick={handleNext} disabled={!canProceed()}>
+              Next
+              <ArrowRightIcon className="w-4 h-4 ml-2" />
+            </Button>
+          ) : (
+            <Button onClick={handleCreate}>
+              <RocketLaunchIcon className="w-4 h-4 mr-2" />
+              Create Screen
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
