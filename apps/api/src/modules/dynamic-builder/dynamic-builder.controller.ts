@@ -35,7 +35,7 @@ import {
 @ApiTags('Dynamic Builder')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('dynamic')
+@Controller('dynamic-builder')
 export class DynamicBuilderController {
   constructor(private readonly dynamicBuilderService: DynamicBuilderService) {}
 
@@ -49,7 +49,7 @@ export class DynamicBuilderController {
   async createTable(
     @Body() createTableDto: CreateTableDto,
     @CurrentTenant() tenantId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     return this.dynamicBuilderService.createTable(tenantId, createTableDto, userId);
   }
@@ -83,7 +83,7 @@ export class DynamicBuilderController {
     @Param('name') tableName: string,
     @Body() updateTableDto: UpdateTableDto,
     @CurrentTenant() tenantId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     return this.dynamicBuilderService.updateTable(tenantId, tableName, updateTableDto, userId);
   }
@@ -113,7 +113,7 @@ export class DynamicBuilderController {
     @Param('name') tableName: string,
     @Body() createRecordDto: CreateRecordDto,
     @CurrentTenant() tenantId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     return this.dynamicBuilderService.createRecord(tenantId, tableName, createRecordDto, userId);
   }
@@ -174,7 +174,7 @@ export class DynamicBuilderController {
     @Param('id') recordId: string,
     @Body() updateRecordDto: UpdateRecordDto,
     @CurrentTenant() tenantId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     return this.dynamicBuilderService.updateRecord(tenantId, tableName, recordId, updateRecordDto, userId);
   }
@@ -204,7 +204,7 @@ export class DynamicBuilderController {
     @Param('name') tableName: string,
     @Body() records: CreateRecordDto[],
     @CurrentTenant() tenantId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     return this.dynamicBuilderService.bulkCreate(tenantId, tableName, records, userId);
   }
