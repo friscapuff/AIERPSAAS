@@ -166,19 +166,26 @@ Textarea.displayName = 'Textarea';
 
 // ─── Select ───────────────────────────────────────────────────────────────────
 interface SelectProps
-  extends React.SelectHTMLAttributes<HTMLSelectElement>,
+  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
     BaseFieldProps {
   options: { label: string; value: string | number }[];
   placeholder?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   (
-    { label, hint, error, required, options, placeholder, className, id: idProp, ...props },
+    { label, hint, error, required, options, placeholder, size = 'md', className, id: idProp, ...props },
     ref,
   ) => {
     const generatedId = useId();
     const id = idProp ?? generatedId;
+
+    const sizeClass = {
+      sm: 'h-8 text-sm px-3',
+      md: 'h-9 text-sm px-3',
+      lg: 'h-11 text-base px-4',
+    }[size];
 
     return (
       <FieldWrapper
@@ -192,13 +199,14 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={id}
           className={cn(
-            'w-full h-9 rounded-lg border bg-white text-surface-900 px-3 text-sm',
+            'w-full rounded-lg border bg-white text-surface-900',
             'transition-colors duration-150',
             'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent',
             'disabled:bg-surface-50 disabled:text-surface-400 disabled:cursor-not-allowed',
             error
               ? 'border-danger-400 focus:ring-danger-400'
               : 'border-surface-300 hover:border-surface-400',
+            sizeClass,
             className,
           )}
           {...props}
