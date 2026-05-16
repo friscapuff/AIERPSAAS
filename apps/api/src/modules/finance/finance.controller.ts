@@ -1,34 +1,99 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Query, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse, ApiQuery, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsArray, IsDateString, IsBoolean, IsNumber, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { FinanceService } from './finance.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 
+// ─── DTOs with class-validator decorators ───────────────────────────────────
+// (Required because ValidationPipe uses forbidNonWhitelisted: true)
+
 export class CreateChartOfAccountsDto {
+  @ApiProperty()
+  @IsString()
   account_code: string;
+
+  @ApiProperty()
+  @IsString()
   account_name: string;
+
+  @ApiProperty()
+  @IsString()
   account_type: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   parent_id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   level?: number;
 }
 
+class JournalLineDto {
+  @ApiProperty()
+  @IsString()
+  account_id: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  debit_amount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  credit_amount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 export class CreateJournalEntryDto {
+  @ApiProperty()
+  @IsString()
   description: string;
+
+  @ApiProperty()
+  @IsDateString()
   transaction_date: Date;
+
+  @ApiProperty()
+  @IsString()
   reference_number: string;
-  lines: Array<{
-    account_id: string;
-    debit_amount?: number;
-    credit_amount?: number;
-    description?: string;
-  }>;
+
+  @ApiProperty({ type: [JournalLineDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => JournalLineDto)
+  lines: JournalLineDto[];
 }
 
 export class CreateFinancialPeriodDto {
+  @ApiProperty()
+  @IsDateString()
   period_start: Date;
+
+  @ApiProperty()
+  @IsDateString()
   period_end: Date;
+
+  @ApiProperty()
+  @IsString()
   period_name: string;
+
+  @ApiProperty()
+  @IsBoolean()
   is_open: boolean;
 }
 
