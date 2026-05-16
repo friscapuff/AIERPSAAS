@@ -74,7 +74,7 @@ interface ApprovalRule {
 }
 
 const STEP_LABELS = [
-  'Header Table',
+  'Select Tables',
   'Detail Tables',
   'Data Entry',
   'Configure Screen',
@@ -152,8 +152,8 @@ export default function ScreenCreationWizard() {
   // Step state
   const [currentStep, setCurrentStep] = useState(0)
 
-  // Step 1 - Header Table
-  const [headerTable, setHeaderTable] = useState<string>('')
+  // Step 1 - Header Tables (MULTI-SELECT)
+  const [headerTables, setHeaderTables] = useState<string[]>([])
   const [tableSearch, setTableSearch] = useState('')
 
   // Step 2 - Detail Tables
@@ -198,9 +198,9 @@ export default function ScreenCreationWizard() {
 
   // Derived data
   const selectedTables = useMemo(() => {
-    const tableIds = [headerTable, ...detailTables].filter(Boolean)
+    const tableIds = [...headerTables, ...detailTables].filter(Boolean)
     return allTables?.filter((t: TableDefinition) => tableIds.includes(t.id)) || []
-  }, [headerTable, detailTables, allTables])
+  }, [headerTables, detailTables, allTables])
 
   const allFields = useMemo(() => {
     const fields: { tableId: string; tableName: string; tableLabel: string; fieldName: string; fieldLabel: string; fieldType: string }[] = []
@@ -232,14 +232,14 @@ export default function ScreenCreationWizard() {
 
   const availableDetailTables = useMemo(() => {
     if (!allTables) return []
-    return allTables.filter((t: TableDefinition) => t.id !== headerTable)
-  }, [allTables, headerTable])
+    return allTables.filter((t: TableDefinition) => !headerTables.includes(t.id))
+  }, [allTables, headerTables])
 
   // Navigation
   const canProceed = (): boolean => {
     switch (currentStep) {
       case 0:
-        return !!headerTable
+        return headerTables.length > 0
       case 1:
         return true
       case 2:
@@ -269,6 +269,15 @@ export default function ScreenCreationWizard() {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1)
     }
+  }
+
+  // Header table toggle (multi-select)
+  const toggleHeaderTable = (tableId: string) => {
+    setHeaderTables((prev) =>
+      prev.includes(tableId) ? prev.filter((id) => id !== tableId) : [...prev, tableId]
+    )
+    // Remove from detail tables if added as header
+    setDetailTables((prev) => prev.filter((id) => id !== tableId))
   }
 
   // Tab management
@@ -367,7 +376,7 @@ export default function ScreenCreationWizard() {
   const handleCreate = async () => {
     try {
       await createScreen({
-        headerTable,
+        headerTables,
         detailTables,
         screenName,
         displayName,
@@ -444,15 +453,38 @@ export default function ScreenCreationWizard() {
     </div>
   )
 
-  // Step 1: Header Table
+  // Step 1: Select Tables (MULTI-SELECT)
   const renderStep1 = () => (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-surface-100 mb-2">Select Header Table</h2>
+        <h2 className="text-xl font-semibold text-surface-100 mb-2">Select Tables</h2>
         <p className="text-surface-400 text-sm">
-          Choose the main table for your screen. This will be the primary data source.
+          Choose one or more tables for your screen. Select multiple tables to build a combined view.
         </p>
       </div>
+
+      {/* Selected tables badges */}
+      {headerTables.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {headerTables.map((tableId) => {
+            const table = allTables?.find((t: TableDefinition) => t.id === tableId)
+            return (
+              <Badge key={tableId} variant="default" className="px-3 py-1.5">
+                {table?.label || table?.name || tableId}
+                <button
+                  onClick={() => toggleHeaderTable(tableId)}
+                  className="ml-2 text-surface-300 hover:text-white"
+                >
+                  ×
+                </button>
+              </Badge>
+            )
+          })}
+          <span className="text-xs text-surface-500 self-center ml-2">
+            {headerTables.length} table(s) selected
+          </span>
+        </div>
+      )}
 
       <div className="relative">
         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-400" />
@@ -468,41 +500,50 @@ export default function ScreenCreationWizard() {
         <div>
           <h3 className="text-sm font-medium text-surface-300 mb-3 flex items-center gap-2">
             <Badge variant="default">System</Badge>
-            Tables
+            Tables ({filteredTables.system.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredTables.system.map((table: TableDefinition) => (
-              <Card
-                key={table.id}
-                className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
-                  headerTable === table.id
-                    ? 'border-primary-500 bg-primary-500/10'
-                    : 'border-surface-700'
-                }`}
-                onClick={() => setHeaderTable(table.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      headerTable === table.id ? 'bg-primary-500/20' : 'bg-surface-800'
-                    }`}
-                  >
-                    <TableCellsIcon
-                      className={`w-5 h-5 ${
-                        headerTable === table.id ? 'text-primary-400' : 'text-surface-400'
-                      }`}
+            {filteredTables.system.map((table: TableDefinition) => {
+              const isSelected = headerTables.includes(table.id)
+              return (
+                <Card
+                  key={table.id}
+                  className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
+                    isSelected
+                      ? 'border-primary-500 bg-primary-500/10'
+                      : 'border-surface-700'
+                  }`}
+                  onClick={() => toggleHeaderTable(table.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleHeaderTable(table.id)}
+                      className="w-4 h-4 rounded border-surface-600 text-primary-500 focus:ring-primary-500"
                     />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        isSelected ? 'bg-primary-500/20' : 'bg-surface-800'
+                      }`}
+                    >
+                      <TableCellsIcon
+                        className={`w-5 h-5 ${
+                          isSelected ? 'text-primary-400' : 'text-surface-400'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-surface-100 truncate">{table.label}</p>
+                      <p className="text-xs text-surface-500">{table.name} · {table.fields?.length || 0} fields</p>
+                    </div>
+                    {isSelected && (
+                      <CheckCircleIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-surface-100 truncate">{table.label}</p>
-                    <p className="text-xs text-surface-500">{table.name} - {table.fields?.length || 0} fields</p>
-                  </div>
-                  {headerTable === table.id && (
-                    <CheckCircleIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
-                  )}
-                </div>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         </div>
       )}
@@ -511,41 +552,50 @@ export default function ScreenCreationWizard() {
         <div>
           <h3 className="text-sm font-medium text-surface-300 mb-3 flex items-center gap-2">
             <Badge variant="secondary">Custom</Badge>
-            Dynamic Tables
+            Dynamic Tables ({filteredTables.custom.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredTables.custom.map((table: TableDefinition) => (
-              <Card
-                key={table.id}
-                className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
-                  headerTable === table.id
-                    ? 'border-primary-500 bg-primary-500/10'
-                    : 'border-surface-700'
-                }`}
-                onClick={() => setHeaderTable(table.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      headerTable === table.id ? 'bg-primary-500/20' : 'bg-surface-800'
-                    }`}
-                  >
-                    <CubeIcon
-                      className={`w-5 h-5 ${
-                        headerTable === table.id ? 'text-primary-400' : 'text-surface-400'
-                      }`}
+            {filteredTables.custom.map((table: TableDefinition) => {
+              const isSelected = headerTables.includes(table.id)
+              return (
+                <Card
+                  key={table.id}
+                  className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
+                    isSelected
+                      ? 'border-primary-500 bg-primary-500/10'
+                      : 'border-surface-700'
+                  }`}
+                  onClick={() => toggleHeaderTable(table.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleHeaderTable(table.id)}
+                      className="w-4 h-4 rounded border-surface-600 text-primary-500 focus:ring-primary-500"
                     />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        isSelected ? 'bg-primary-500/20' : 'bg-surface-800'
+                      }`}
+                    >
+                      <CubeIcon
+                        className={`w-5 h-5 ${
+                          isSelected ? 'text-primary-400' : 'text-surface-400'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-surface-100 truncate">{table.label}</p>
+                      <p className="text-xs text-surface-500">{table.name} · {table.fields?.length || 0} fields</p>
+                    </div>
+                    {isSelected && (
+                      <CheckCircleIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-surface-100 truncate">{table.label}</p>
-                    <p className="text-xs text-surface-500">{table.name} - {table.fields?.length || 0} fields</p>
-                  </div>
-                  {headerTable === table.id && (
-                    <CheckCircleIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
-                  )}
-                </div>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         </div>
       )}
@@ -558,7 +608,7 @@ export default function ScreenCreationWizard() {
       <div>
         <h2 className="text-xl font-semibold text-surface-100 mb-2">Select Detail Tables</h2>
         <p className="text-surface-400 text-sm">
-          Choose line item or detail tables to include with the header. This step is optional.
+          Choose additional line item or detail tables. These are tables not selected as primary in Step 1.
         </p>
       </div>
 
@@ -573,7 +623,7 @@ export default function ScreenCreationWizard() {
                   onClick={() => toggleDetailTable(tableId)}
                   className="ml-2 text-surface-300 hover:text-white"
                 >
-                  x
+                  ×
                 </button>
               </Badge>
             )
@@ -601,7 +651,7 @@ export default function ScreenCreationWizard() {
               />
               <div className="flex-1">
                 <p className="text-sm font-medium text-surface-100">{table.label}</p>
-                <p className="text-xs text-surface-500">{table.name} - {table.fields?.length || 0} fields</p>
+                <p className="text-xs text-surface-500">{table.name} · {table.fields?.length || 0} fields</p>
               </div>
               <Badge variant="secondary" className="text-xs">
                 {table.isSystem ? 'System' : 'Custom'}
@@ -635,7 +685,10 @@ export default function ScreenCreationWizard() {
             <div key={table.id}>
               <h3 className="text-sm font-medium text-surface-200 mb-2 flex items-center gap-2">
                 <TableCellsIcon className="w-4 h-4 text-primary-400" />
-                {table.name}
+                {table.label}
+                <Badge variant="secondary" className="text-[10px]">
+                  {headerTables.includes(table.id) ? 'Primary' : 'Detail'}
+                </Badge>
                 {initialData[table.id]?.length ? (
                   <Badge variant="default" className="text-xs">
                     {initialData[table.id].length} rows
@@ -786,7 +839,10 @@ export default function ScreenCreationWizard() {
                   {selectedTables.map((table: TableDefinition) => (
                     <div key={table.id}>
                       <p className="text-xs font-medium text-surface-400 uppercase tracking-wide mb-2">
-                        {table.name}
+                        {table.label}
+                        <span className="ml-2 text-surface-600 normal-case">
+                          ({headerTables.includes(table.id) ? 'Primary' : 'Detail'})
+                        </span>
                       </p>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                         {(table.fields || []).map((field) => {
@@ -826,36 +882,10 @@ export default function ScreenCreationWizard() {
       <div>
         <h2 className="text-xl font-semibold text-surface-100 mb-2">Validation Rules</h2>
         <p className="text-surface-400 text-sm">
-          Define validation rules for your screen fields. Existing rules can be toggled on/off.
+          Define validation rules for your screen fields.
         </p>
       </div>
 
-      {/* Existing validation rules */}
-      {existingValidations && existingValidations.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-surface-300 mb-2">Existing Rules</h3>
-          <div className="space-y-2">
-            {existingValidations.map((rule: any) => (
-              <Card key={rule.id} className="p-3 border-surface-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-surface-200">{rule.field}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {rule.operator}
-                    </Badge>
-                    {rule.value && (
-                      <span className="text-xs text-surface-400">{rule.value}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-surface-500">{rule.errorMessage}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Custom validation rules */}
       {validations.length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-surface-300 mb-2">Custom Rules</h3>
@@ -871,19 +901,12 @@ export default function ScreenCreationWizard() {
                       className="w-4 h-4 rounded border-surface-600 text-primary-500"
                     />
                     <span className="text-sm text-surface-200">{rule.field}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {rule.operator}
-                    </Badge>
-                    {rule.value && (
-                      <span className="text-xs text-surface-400">{rule.value}</span>
-                    )}
+                    <Badge variant="secondary" className="text-xs">{rule.operator}</Badge>
+                    {rule.value && <span className="text-xs text-surface-400">{rule.value}</span>}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-surface-500">{rule.errorMessage}</span>
-                    <button
-                      onClick={() => removeValidation(rule.id)}
-                      className="text-surface-500 hover:text-red-400"
-                    >
+                    <button onClick={() => removeValidation(rule.id)} className="text-surface-500 hover:text-red-400">
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
@@ -894,16 +917,12 @@ export default function ScreenCreationWizard() {
         </div>
       )}
 
-      {/* Add new validation */}
       <Card className="p-4 border-surface-700">
         <h3 className="text-sm font-medium text-surface-200 mb-3">Add Validation Rule</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs text-surface-400 mb-1">Field</label>
-            <Select
-              value={newValidation.field}
-              onChange={(e) => setNewValidation({ ...newValidation, field: e.target.value })}
-            >
+            <Select value={newValidation.field} onChange={(e) => setNewValidation({ ...newValidation, field: e.target.value })}>
               <option value="">Select field...</option>
               {allFields.map((f) => (
                 <option key={`${f.tableId}.${f.fieldName}`} value={`${f.tableName}.${f.fieldName}`}>
@@ -914,34 +933,19 @@ export default function ScreenCreationWizard() {
           </div>
           <div>
             <label className="block text-xs text-surface-400 mb-1">Operator</label>
-            <Select
-              value={newValidation.operator}
-              onChange={(e) => setNewValidation({ ...newValidation, operator: e.target.value })}
-            >
+            <Select value={newValidation.operator} onChange={(e) => setNewValidation({ ...newValidation, operator: e.target.value })}>
               {OPERATORS.map((op) => (
-                <option key={op.value} value={op.value}>
-                  {op.label}
-                </option>
+                <option key={op.value} value={op.value}>{op.label}</option>
               ))}
             </Select>
           </div>
           <div>
             <label className="block text-xs text-surface-400 mb-1">Value</label>
-            <Input
-              value={newValidation.value}
-              onChange={(e) => setNewValidation({ ...newValidation, value: e.target.value })}
-              placeholder="Comparison value"
-            />
+            <Input value={newValidation.value} onChange={(e) => setNewValidation({ ...newValidation, value: e.target.value })} placeholder="Comparison value" />
           </div>
           <div>
             <label className="block text-xs text-surface-400 mb-1">Error Message</label>
-            <Input
-              value={newValidation.errorMessage}
-              onChange={(e) =>
-                setNewValidation({ ...newValidation, errorMessage: e.target.value })
-              }
-              placeholder="Error message"
-            />
+            <Input value={newValidation.errorMessage} onChange={(e) => setNewValidation({ ...newValidation, errorMessage: e.target.value })} placeholder="Error message" />
           </div>
         </div>
         <div className="mt-3 flex justify-end">
@@ -964,32 +968,9 @@ export default function ScreenCreationWizard() {
         </p>
       </div>
 
-      {/* Existing approval rules */}
-      {existingApprovals && existingApprovals.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-surface-300 mb-2">Existing Approval Rules</h3>
-          <div className="space-y-2">
-            {existingApprovals.map((rule: any) => (
-              <Card key={rule.id} className="p-3 border-surface-700">
-                <div className="flex items-center gap-3">
-                  <Badge variant="default">{rule.triggerStatus}</Badge>
-                  <ChevronRightIcon className="w-4 h-4 text-surface-500" />
-                  <span className="text-sm text-surface-300">
-                    {rule.levels?.length || 0} level(s)
-                  </span>
-                  <ChevronRightIcon className="w-4 h-4 text-surface-500" />
-                  <Badge variant="secondary">{rule.targetStatus}</Badge>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Custom approval rules */}
       {approvals.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-surface-300 mb-2">Custom Approval Rules</h3>
+          <h3 className="text-sm font-medium text-surface-300 mb-2">Approval Rules</h3>
           <div className="space-y-2">
             {approvals.map((rule) => (
               <Card key={rule.id} className="p-3 border-surface-700">
@@ -999,17 +980,13 @@ export default function ScreenCreationWizard() {
                     <ChevronRightIcon className="w-4 h-4 text-surface-500" />
                     {rule.levels.map((level, i) => (
                       <span key={i} className="text-sm text-surface-300">
-                        L{level.level}: {level.role}
-                        {i < rule.levels.length - 1 ? ' → ' : ''}
+                        L{level.level}: {level.role}{i < rule.levels.length - 1 ? ' → ' : ''}
                       </span>
                     ))}
                     <ChevronRightIcon className="w-4 h-4 text-surface-500" />
                     <Badge variant="secondary">{rule.targetStatus}</Badge>
                   </div>
-                  <button
-                    onClick={() => removeApproval(rule.id)}
-                    className="text-surface-500 hover:text-red-400"
-                  >
+                  <button onClick={() => removeApproval(rule.id)} className="text-surface-500 hover:text-red-400">
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -1019,30 +996,17 @@ export default function ScreenCreationWizard() {
         </div>
       )}
 
-      {/* Add new approval */}
       <Card className="p-4 border-surface-700">
         <h3 className="text-sm font-medium text-surface-200 mb-3">Add Approval Rule</h3>
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-surface-400 mb-1">Trigger Status</label>
-              <Input
-                value={newApproval.triggerStatus}
-                onChange={(e) =>
-                  setNewApproval({ ...newApproval, triggerStatus: e.target.value })
-                }
-                placeholder="e.g. Submitted"
-              />
+              <Input value={newApproval.triggerStatus} onChange={(e) => setNewApproval({ ...newApproval, triggerStatus: e.target.value })} placeholder="e.g. Submitted" />
             </div>
             <div>
               <label className="block text-xs text-surface-400 mb-1">Target Status</label>
-              <Input
-                value={newApproval.targetStatus}
-                onChange={(e) =>
-                  setNewApproval({ ...newApproval, targetStatus: e.target.value })
-                }
-                placeholder="e.g. Approved"
-              />
+              <Input value={newApproval.targetStatus} onChange={(e) => setNewApproval({ ...newApproval, targetStatus: e.target.value })} placeholder="e.g. Approved" />
             </div>
           </div>
 
@@ -1058,17 +1022,9 @@ export default function ScreenCreationWizard() {
               {newApproval.levels.map((level, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <span className="text-xs text-surface-500 w-12">L{level.level}</span>
-                  <Input
-                    value={level.role}
-                    onChange={(e) => updateApprovalLevel(index, e.target.value)}
-                    placeholder="Role (e.g. Manager, Director)"
-                    className="flex-1"
-                  />
+                  <Input value={level.role} onChange={(e) => updateApprovalLevel(index, e.target.value)} placeholder="Role (e.g. Manager, Director)" className="flex-1" />
                   {newApproval.levels.length > 1 && (
-                    <button
-                      onClick={() => removeApprovalLevel(index)}
-                      className="text-surface-500 hover:text-red-400"
-                    >
+                    <button onClick={() => removeApprovalLevel(index)} className="text-surface-500 hover:text-red-400">
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   )}
@@ -1093,9 +1049,7 @@ export default function ScreenCreationWizard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-surface-100 mb-2">Publish Location</h2>
-        <p className="text-surface-400 text-sm">
-          Choose where this screen will appear in the navigation.
-        </p>
+        <p className="text-surface-400 text-sm">Choose where this screen will appear in the navigation.</p>
       </div>
 
       <div className="space-y-3">
@@ -1103,20 +1057,12 @@ export default function ScreenCreationWizard() {
           <Card
             key={loc.value}
             className={`p-4 cursor-pointer transition-all hover:border-primary-500/50 ${
-              publishLocation === loc.value
-                ? 'border-primary-500 bg-primary-500/10'
-                : 'border-surface-700'
+              publishLocation === loc.value ? 'border-primary-500 bg-primary-500/10' : 'border-surface-700'
             }`}
             onClick={() => setPublishLocation(loc.value)}
           >
             <div className="flex items-center gap-3">
-              <input
-                type="radio"
-                name="publishLocation"
-                checked={publishLocation === loc.value}
-                onChange={() => setPublishLocation(loc.value)}
-                className="w-4 h-4 text-primary-500 border-surface-600 focus:ring-primary-500"
-              />
+              <input type="radio" name="publishLocation" checked={publishLocation === loc.value} onChange={() => setPublishLocation(loc.value)} className="w-4 h-4 text-primary-500 border-surface-600 focus:ring-primary-500" />
               <span className="text-sm font-medium text-surface-200">{loc.label}</span>
             </div>
           </Card>
@@ -1125,25 +1071,14 @@ export default function ScreenCreationWizard() {
 
       {publishLocation === 'custom' && (
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1">
-            Custom Group Name <span className="text-red-400">*</span>
-          </label>
-          <Input
-            value={customGroup}
-            onChange={(e) => setCustomGroup(e.target.value)}
-            placeholder="e.g. HR Management"
-          />
+          <label className="block text-sm font-medium text-surface-300 mb-1">Custom Group Name <span className="text-red-400">*</span></label>
+          <Input value={customGroup} onChange={(e) => setCustomGroup(e.target.value)} placeholder="e.g. HR Management" />
         </div>
       )}
 
       <div className="border-t border-surface-700 pt-4">
         <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={addToSidebar}
-            onChange={(e) => setAddToSidebar(e.target.checked)}
-            className="w-4 h-4 rounded border-surface-600 text-primary-500 focus:ring-primary-500"
-          />
+          <input type="checkbox" checked={addToSidebar} onChange={(e) => setAddToSidebar(e.target.checked)} className="w-4 h-4 rounded border-surface-600 text-primary-500 focus:ring-primary-500" />
           <span className="text-sm text-surface-200">Add to sidebar immediately</span>
         </label>
       </div>
@@ -1152,22 +1087,20 @@ export default function ScreenCreationWizard() {
 
   // Step 8: Review & Create
   const renderStep8 = () => {
-    const headerTableObj = allTables?.find((t: TableDefinition) => t.id === headerTable)
-    const headerTableName = headerTableObj?.label || headerTableObj?.name || headerTable
-    const detailTableNames = detailTables.map(
-      (id) => {
-        const t = allTables?.find((t: TableDefinition) => t.id === id)
-        return t?.label || t?.name || id
-      }
-    )
+    const headerTableNames = headerTables.map((id) => {
+      const t = allTables?.find((t: TableDefinition) => t.id === id)
+      return t?.label || t?.name || id
+    })
+    const detailTableNames = detailTables.map((id) => {
+      const t = allTables?.find((t: TableDefinition) => t.id === id)
+      return t?.label || t?.name || id
+    })
 
     return (
       <div className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold text-surface-100 mb-2">Review & Create</h2>
-          <p className="text-surface-400 text-sm">
-            Review your screen configuration before creating.
-          </p>
+          <p className="text-surface-400 text-sm">Review your screen configuration before creating.</p>
         </div>
 
         <Card className="p-6 border-surface-700 space-y-4">
@@ -1182,15 +1115,11 @@ export default function ScreenCreationWizard() {
             </div>
             <div>
               <p className="text-xs text-surface-500 uppercase tracking-wide">Screen Type</p>
-              <p className="text-sm text-surface-100">
-                {SCREEN_TYPES.find((t) => t.value === screenType)?.label}
-              </p>
+              <p className="text-sm text-surface-100">{SCREEN_TYPES.find((t) => t.value === screenType)?.label}</p>
             </div>
             <div>
               <p className="text-xs text-surface-500 uppercase tracking-wide">Icon</p>
-              <p className="text-sm text-surface-100">
-                {ICON_OPTIONS.find((i) => i.value === screenIcon)?.label}
-              </p>
+              <p className="text-sm text-surface-100">{ICON_OPTIONS.find((i) => i.value === screenIcon)?.label}</p>
             </div>
           </div>
 
@@ -1202,20 +1131,20 @@ export default function ScreenCreationWizard() {
           )}
 
           <div className="border-t border-surface-700 pt-4">
-            <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Header Table</p>
-            <Badge variant="default">{headerTableName}</Badge>
+            <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Primary Tables ({headerTableNames.length})</p>
+            <div className="flex flex-wrap gap-2">
+              {headerTableNames.map((name, i) => (
+                <Badge key={i} variant="default">{name}</Badge>
+              ))}
+            </div>
           </div>
 
           {detailTableNames.length > 0 && (
             <div>
-              <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">
-                Detail Tables
-              </p>
+              <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Detail Tables ({detailTableNames.length})</p>
               <div className="flex flex-wrap gap-2">
                 {detailTableNames.map((name, i) => (
-                  <Badge key={i} variant="secondary">
-                    {name}
-                  </Badge>
+                  <Badge key={i} variant="secondary">{name}</Badge>
                 ))}
               </div>
             </div>
@@ -1225,18 +1154,14 @@ export default function ScreenCreationWizard() {
             <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Tabs</p>
             <div className="flex flex-wrap gap-2">
               {tabs.map((tab) => (
-                <Badge key={tab.id} variant="default">
-                  {tab.name}
-                </Badge>
+                <Badge key={tab.id} variant="default">{tab.name}</Badge>
               ))}
             </div>
           </div>
 
           {getDataRowsCount() > 0 && (
             <div>
-              <p className="text-xs text-surface-500 uppercase tracking-wide mb-1">
-                Initial Data Rows
-              </p>
+              <p className="text-xs text-surface-500 uppercase tracking-wide mb-1">Initial Data Rows</p>
               <p className="text-sm text-surface-200">{getDataRowsCount()} rows</p>
             </div>
           )}
@@ -1253,9 +1178,7 @@ export default function ScreenCreationWizard() {
             <div>
               <p className="text-xs text-surface-500 uppercase tracking-wide">Location</p>
               <p className="text-sm text-surface-200">
-                {publishLocation === 'custom'
-                  ? customGroup
-                  : PUBLISH_LOCATIONS.find((l) => l.value === publishLocation)?.label}
+                {publishLocation === 'custom' ? customGroup : PUBLISH_LOCATIONS.find((l) => l.value === publishLocation)?.label}
               </p>
             </div>
           </div>
@@ -1267,24 +1190,15 @@ export default function ScreenCreationWizard() {
   // Render current step
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case 0:
-        return renderStep1()
-      case 1:
-        return renderStep2()
-      case 2:
-        return renderStep3()
-      case 3:
-        return renderStep4()
-      case 4:
-        return renderStep5()
-      case 5:
-        return renderStep6()
-      case 6:
-        return renderStep7()
-      case 7:
-        return renderStep8()
-      default:
-        return null
+      case 0: return renderStep1()
+      case 1: return renderStep2()
+      case 2: return renderStep3()
+      case 3: return renderStep4()
+      case 4: return renderStep5()
+      case 5: return renderStep6()
+      case 6: return renderStep7()
+      case 7: return renderStep8()
+      default: return null
     }
   }
 
@@ -1307,11 +1221,7 @@ export default function ScreenCreationWizard() {
 
         {/* Navigation */}
         <div className="flex items-center justify-between">
-          <Button
-            onClick={handleBack}
-            variant="secondary"
-            disabled={currentStep === 0}
-          >
+          <Button onClick={handleBack} variant="secondary" disabled={currentStep === 0}>
             <ArrowLeftIcon className="w-4 h-4 mr-2" />
             Back
           </Button>
