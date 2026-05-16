@@ -25,6 +25,16 @@ import {
   QueryInventoryDto,
 } from './dto';
 
+// Map frontend costing method names to backend enum
+function resolveCostingMethod(input?: string): CostingMethod {
+  if (!input) return CostingMethod.WEIGHTED_AVG;
+  const normalized = input.toUpperCase().replace(/[_\s-]/g, '');
+  if (normalized === 'FIFO') return CostingMethod.FIFO;
+  if (normalized === 'WEIGHTEDAVG' || normalized === 'WEIGHTEDAVERAGE' || normalized === 'AVERAGE' || normalized === 'AVG') return CostingMethod.WEIGHTED_AVG;
+  // Default to weighted average for unknown values
+  return CostingMethod.WEIGHTED_AVG;
+}
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -43,16 +53,22 @@ export class InventoryService {
     const existingItem = await this.itemRepository.findOne({ where: { tenant_id: tenantId, code: createItemDto.code } });
     if (existingItem) throw new ConflictException(`Item with code "${createItemDto.code}" already exists`);
 
+    // Resolve both frontend and backend field names
+    const unitOfMeasure = createItemDto.unitOfMeasure || (createItemDto as any).unit || 'PC';
+    const costingMethod = resolveCostingMethod(createItemDto.costingMethod || (createItemDto as any).costMethod);
+    const minStock = createItemDto.minStockLevel || (createItemDto as any).reorderPoint || 0;
+    const maxStock = createItemDto.maxStockLevel || (createItemDto as any).reorderQty || 0;
+
     const item = this.itemRepository.create({
       tenant_id: tenantId,
       code: createItemDto.code,
       name: createItemDto.name,
       description: createItemDto.description || null,
       category: createItemDto.category || null,
-      unit_of_measure: createItemDto.unitOfMeasure,
-      costing_method: createItemDto.costingMethod,
-      min_stock_level: createItemDto.minStockLevel || 0,
-      max_stock_level: createItemDto.maxStockLevel || 0,
+      unit_of_measure: unitOfMeasure,
+      costing_method: costingMethod,
+      min_stock_level: minStock,
+      max_stock_level: maxStock,
     });
 
     return this.itemRepository.save(item);
