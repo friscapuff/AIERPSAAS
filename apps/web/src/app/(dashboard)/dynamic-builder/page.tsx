@@ -54,7 +54,7 @@ const TYPE_ICONS: Partial<Record<FieldType, string>> = {
   SELECT: '▾',
 };
 
-// ─── Create Table Wizard ──────────────────────────────────────────────────────
+// ─── Create Table Wizard ─────────────────────────────────────────────────────
 interface NewField {
   name: string;
   label: string;
@@ -215,7 +215,7 @@ function CreateTableModal({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-// ─── Edit Table Modal ─────────────────────────────────────────────────────────
+// ─── Edit Table Modal ────────────────────────────────────────────────────────
 function EditTableModal({
   table,
   onClose,
@@ -367,7 +367,7 @@ function EditTableModal({
   );
 }
 
-// ─── Table data view ──────────────────────────────────────────────────────────
+// ─── Table data view ─────────────────────────────────────────────────────────
 function TableDataView({ table }: { table: DynamicTable }) {
   const { data: recordsData, isLoading } = useDynamicRecords(table.name);
 
@@ -407,8 +407,8 @@ function TableDataView({ table }: { table: DynamicTable }) {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-export default function DynamicBuilderPage() {
+// ─── Page ────────────────────────────────────────────────────────────────────
+export default function DynamicBuilderTablesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTable, setSelectedTable] = useState<DynamicTable | null>(null);
   const [deleteTable, setDeleteTable] = useState<DynamicTable | null>(null);
@@ -420,7 +420,6 @@ export default function DynamicBuilderPage() {
   const handleDelete = async () => {
     if (!deleteTable) return;
     try {
-      // API expects table name (not UUID id)
       await deleteTableMutation.mutateAsync(deleteTable.name);
       notify.success(`Table "${deleteTable.label}" deleted.`);
       if (selectedTable?.id === deleteTable.id) setSelectedTable(null);
@@ -431,20 +430,16 @@ export default function DynamicBuilderPage() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
+    <div className="space-y-4">
+      {/* Action bar */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-surface-900">Dynamic Builder</h1>
-          <p className="text-sm text-surface-500 mt-0.5">Create custom data tables without writing code</p>
-        </div>
+        <p className="text-sm text-surface-600">{tables?.length ?? 0} table(s) defined</p>
         <Button leftIcon={<PlusIcon className="h-4 w-4" />} onClick={() => setShowCreate(true)}>
           New Table
         </Button>
       </div>
 
       {selectedTable ? (
-        /* Table detail view */
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <button
@@ -457,7 +452,6 @@ export default function DynamicBuilderPage() {
             <span className="text-sm font-medium text-surface-900">{selectedTable.label}</span>
           </div>
 
-          {/* Fields summary */}
           <Card padding="md">
             <Card.Header
               title={`${selectedTable.label} — Field Definitions`}
@@ -474,9 +468,7 @@ export default function DynamicBuilderPage() {
                     {TYPE_ICONS[field.type] ?? (field.type || '').slice(0, 3)}
                   </span>
                   <span className="text-xs font-medium text-surface-700">{field.label}</span>
-                  {field.required && (
-                    <span className="text-danger-400 text-xs">*</span>
-                  )}
+                  {field.required && <span className="text-danger-400 text-xs">*</span>}
                 </div>
               ))}
             </div>
@@ -484,75 +476,72 @@ export default function DynamicBuilderPage() {
 
           <TableDataView table={selectedTable} />
         </div>
+      ) : isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-32 bg-surface-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : !tables?.length ? (
+        <Card padding="lg" className="text-center">
+          <TableCellsIcon className="h-12 w-12 text-surface-300 mx-auto mb-3" />
+          <h3 className="text-sm font-semibold text-surface-700">No custom tables yet</h3>
+          <p className="text-xs text-surface-400 mt-1 mb-4">
+            Create your first custom data table to store business-specific data.
+          </p>
+          <Button onClick={() => setShowCreate(true)} leftIcon={<PlusIcon className="h-4 w-4" />}>
+            Create First Table
+          </Button>
+        </Card>
       ) : (
-        /* Tables grid */
-        isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-32 bg-surface-100 rounded-xl animate-pulse" />
-            ))}
-          </div>
-        ) : !tables?.length ? (
-          <Card padding="lg" className="text-center">
-            <TableCellsIcon className="h-12 w-12 text-surface-300 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-surface-700">No custom tables yet</h3>
-            <p className="text-xs text-surface-400 mt-1 mb-4">
-              Create your first custom data table to store business-specific data.
-            </p>
-            <Button onClick={() => setShowCreate(true)} leftIcon={<PlusIcon className="h-4 w-4" />}>
-              Create First Table
-            </Button>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {tables.map((table) => (
-              <Card
-                key={table.id}
-                hover
-                padding="md"
-                className="cursor-pointer group"
-                onClick={() => setSelectedTable(table)}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                    <TableCellsIcon className="h-5 w-5 text-primary-600" />
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditTable(table); }}
-                      className="p-1 rounded text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                    >
-                      <PencilSquareIcon className="h-4 w-4" />
-                    </button>
-                    {!table.isSystem && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteTable(table); }}
-                        className="p-1 rounded text-surface-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {tables.map((table) => (
+            <Card
+              key={table.id}
+              hover
+              padding="md"
+              className="cursor-pointer group"
+              onClick={() => setSelectedTable(table)}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="h-10 w-10 bg-primary-50 rounded-lg flex items-center justify-center">
+                  <TableCellsIcon className="h-5 w-5 text-primary-600" />
                 </div>
-                <h3 className="text-sm font-semibold text-surface-900 mb-0.5">{table.label}</h3>
-                {table.description && (
-                  <p className="text-xs text-surface-500 mb-2 line-clamp-2">{table.description}</p>
-                )}
-                <div className="flex items-center gap-3 text-xs text-surface-400">
-                  <span>{table.fields.length} fields</span>
-                  <span>·</span>
-                  <span>{(table.recordCount ?? 0).toLocaleString()} records</span>
-                  {table.isSystem && (
-                    <>
-                      <span>·</span>
-                      <span className="text-info-500 font-medium">System</span>
-                    </>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditTable(table); }}
+                    className="p-1 rounded text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                  >
+                    <PencilSquareIcon className="h-4 w-4" />
+                  </button>
+                  {!table.isSystem && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTable(table); }}
+                      className="p-1 rounded text-surface-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   )}
                 </div>
-              </Card>
-            ))}
-          </div>
-        )
+              </div>
+              <h3 className="text-sm font-semibold text-surface-900 mb-0.5">{table.label}</h3>
+              {table.description && (
+                <p className="text-xs text-surface-500 mb-2 line-clamp-2">{table.description}</p>
+              )}
+              <div className="flex items-center gap-3 text-xs text-surface-400">
+                <span>{table.fields.length} fields</span>
+                <span>·</span>
+                <span>{(table.recordCount ?? 0).toLocaleString()} records</span>
+                {table.isSystem && (
+                  <>
+                    <span>·</span>
+                    <span className="text-info-500 font-medium">System</span>
+                  </>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Modals */}
