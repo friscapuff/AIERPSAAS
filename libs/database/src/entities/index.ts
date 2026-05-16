@@ -30,3 +30,5 @@ export { ApprovalRule, ApprovalCondition } from './approval-rule.entity';
 export { ApprovalLevel as ApprovalRuleLevel } from './approval-rule.entity';
 export * from './validation-rule.entity';
 export * from './impact-rule.entity';
+export * from './company.entity';
+export * from './branch.entity';
