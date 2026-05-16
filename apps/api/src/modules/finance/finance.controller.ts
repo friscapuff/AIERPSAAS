@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { FinanceService } from './finance.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -9,6 +9,8 @@ export class CreateChartOfAccountsDto {
   account_name: string;
   account_type: string;
   description?: string;
+  parent_id?: string;
+  level?: number;
 }
 
 export class CreateJournalEntryDto {
@@ -36,6 +38,45 @@ export class CreateFinancialPeriodDto {
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
+
+  // ─── Frontend-compatible routes ───────────────────────────────────────
+
+  @Get('accounts')
+  @ApiOperation({ summary: 'List all accounts (flat list)' })
+  @ApiResponse({ status: 200, description: 'Flat list of accounts' })
+  async getAccounts(@CurrentTenant() tenantId: string) {
+    return this.financeService.getCOA(tenantId);
+  }
+
+  @Get('accounts/tree')
+  @ApiOperation({ summary: 'Get accounts as hierarchical tree' })
+  @ApiResponse({ status: 200, description: 'Hierarchical tree of accounts' })
+  async getAccountsTree(@CurrentTenant() tenantId: string) {
+    return this.financeService.getCOATree(tenantId);
+  }
+
+  @Patch('periods/:id/close')
+  @ApiOperation({ summary: 'Close financial period (PATCH)' })
+  @ApiResponse({ status: 200, description: 'Period closed' })
+  async closePeriodPatch(@Param('id') id: string, @CurrentTenant() tenantId: string) {
+    return this.financeService.closePeriod(id, tenantId);
+  }
+
+  @Patch('journal-entries/:id/post')
+  @ApiOperation({ summary: 'Post a journal entry' })
+  @ApiResponse({ status: 200, description: 'Journal entry posted' })
+  async postJournalEntry(@Param('id') id: string, @CurrentTenant() tenantId: string) {
+    return this.financeService.postJournalEntry(id, tenantId);
+  }
+
+  @Patch('journal-entries/:id/void')
+  @ApiOperation({ summary: 'Void a journal entry' })
+  @ApiResponse({ status: 200, description: 'Journal entry voided' })
+  async voidJournalEntry(@Param('id') id: string, @CurrentTenant() tenantId: string) {
+    return this.financeService.voidJournalEntry(id, tenantId);
+  }
+
+  // ─── Original Swagger-compatible routes ───────────────────────────────
 
   @Get('chart-of-accounts')
   @ApiOperation({ summary: 'List all chart of accounts' })
