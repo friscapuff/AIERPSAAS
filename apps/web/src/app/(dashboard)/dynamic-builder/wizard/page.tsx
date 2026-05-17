@@ -426,6 +426,23 @@ export default function ScreenCreationWizard() {
     try {
       const primaryTable = allTables?.find((t: TableDefinition) => t.id === headerTables[0])
       const tableName = primaryTable?.name || screenName
+
+      // Collect fields from all selected tables for auto-registration
+      const selectedTableIds = [...headerTables, ...detailTables].filter(Boolean)
+      const tableFields: Record<string, any[]> = {}
+      selectedTableIds.forEach((tid) => {
+        const t = allTables?.find((tb: TableDefinition) => tb.id === tid)
+        if (t) {
+          tableFields[t.name] = t.fields.map((f, idx) => ({
+            name: f.name,
+            label: f.label,
+            type: f.type || 'TEXT',
+            required: false,
+            order: idx,
+          }))
+        }
+      })
+
       await createScreen({
         tableName,
         headerTables,
@@ -442,6 +459,7 @@ export default function ScreenCreationWizard() {
         publishLocation: publishLocation === 'custom' ? customGroup : publishLocation,
         addToSidebar,
         initialData,
+        tableFields,
       })
 
       // Create real impact rules via the Impact Rules API (multi-impact batch)
