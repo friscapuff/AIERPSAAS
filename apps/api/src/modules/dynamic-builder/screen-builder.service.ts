@@ -32,11 +32,37 @@ export class ScreenBuilderService {
   }
 
   async createScreen(tenantId: string, userId: string, dto: any) {
-    // Validate the referenced table exists
-    const table = await this.metadataRepo.findOne({
+    // Check if the referenced table exists in metadata registry
+    let table = await this.metadataRepo.findOne({
       where: { tenant_id: tenantId, table_name: dto.tableName },
     });
-    if (!table) throw new BadRequestException(`Table "${dto.tableName}" does not exist`);
+
+    // If table doesn't exist, auto-register it from provided fields
+    if (!table) {
+      if (dto.tableFields && dto.tableFields[dto.tableName]) {
+        // Auto-register the table in MetadataRegistry
+        table = await this.autoRegisterTable(tenantId, dto.tableName, dto.tableFields[dto.tableName], userId, dto.displayName);
+      } else {
+        // Try to auto-register with minimal fields (just an id and status)
+        table = await this.autoRegisterTable(tenantId, dto.tableName, [
+          { name: 'id', label: 'ID', type: 'NUMBER', required: true, order: 0 },
+          { name: 'status', label: 'Status', type: 'SELECT', required: false, order: 1 },
+        ], userId, dto.displayName || dto.tableName);
+      }
+    }
+
+    // Also auto-register any detail tables that don't exist yet
+    if (dto.tableFields) {
+      for (const [tblName, fields] of Object.entries(dto.tableFields)) {
+        if (tblName === dto.tableName) continue; // Already handled above
+        const existing = await this.metadataRepo.findOne({
+          where: { tenant_id: tenantId, table_name: tblName },
+        });
+        if (!existing) {
+          await this.autoRegisterTable(tenantId, tblName, fields as any[], userId);
+        }
+      }
+    }
 
     // Check screen name uniqueness
     const existing = await this.screenRepo.findOne({
@@ -59,6 +85,53 @@ export class ScreenBuilderService {
     });
 
     return this.screenRepo.save(screen);
+  }
+
+  /**
+   * Auto-register a table in MetadataRegistry when it doesn't exist yet.
+   * This enables the Screen Wizard to create screens for system tables
+   * or new tables without requiring a separate table creation step.
+   */
+  private async autoRegisterTable(
+    tenantId: string,
+    tableName: string,
+    fields: any[],
+    userId: string,
+    displayName?: string,
+  ): Promise<MetadataRegistry> {
+    const metadataFields = fields.map((f: any, idx: number) => ({
+      name: f.name,
+      label: f.label || f.name,
+      type: this.normalizeFieldType(f.type || 'TEXT'),
+      required: f.required ?? false,
+      unique: f.unique ?? false,
+      indexed: f.indexed ?? false,
+      order: f.order ?? idx,
+      default: f.defaultValue || f.default,
+      lookup_table: f.lookupTable || f.lookup_table,
+      lookup_field: f.lookupField || f.lookup_field,
+    }));
+
+    const metadata = this.metadataRepo.create({
+      tenant_id: tenantId,
+      table_name: tableName,
+      display_name: displayName || tableName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      description: `Auto-registered table for screen "${tableName}"`,
+      fields: metadataFields,
+      created_by: userId,
+    });
+
+    return this.metadataRepo.save(metadata);
+  }
+
+  private normalizeFieldType(type: string): string {
+    const normalized = (type || 'TEXT').toUpperCase();
+    const validTypes = [
+      'STRING', 'TEXT', 'TEXTAREA', 'INTEGER', 'NUMBER', 'DECIMAL',
+      'DATE', 'DATETIME', 'BOOLEAN', 'EMAIL', 'PHONE', 'URL',
+      'SELECT', 'MULTI_SELECT', 'LOOKUP', 'FILE',
+    ];
+    return validTypes.includes(normalized) ? normalized : 'TEXT';
   }
 
   async updateScreen(tenantId: string, id: string, dto: any) {
