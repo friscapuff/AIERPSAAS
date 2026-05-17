@@ -158,6 +158,46 @@ export class DynamicBuilderService {
     return table;
   }
 
+  /**
+   * Get table schema or null (non-throwing version).
+   * Used by queryRecords/createRecord to allow operations on tables
+   * that may not yet be registered in metadata (e.g., system tables).
+   */
+  async getTableSchemaOrNull(tenantId: string, tableName: string): Promise<MetadataRegistry | null> {
+    return this.metadataRegistry.findOne({
+      where: { tenant_id: tenantId, table_name: tableName },
+    });
+  }
+
+  /**
+   * Ensures a table exists in MetadataRegistry. If it doesn't exist,
+   * auto-registers it with minimal fields. Returns the table metadata.
+   */
+  async ensureTableExists(tenantId: string, tableName: string, userId?: string): Promise<MetadataRegistry> {
+    let table = await this.metadataRegistry.findOne({
+      where: { tenant_id: tenantId, table_name: tableName },
+    });
+
+    if (!table) {
+      // Auto-register the table with minimal schema
+      const displayName = tableName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const metadata = this.metadataRegistry.create({
+        tenant_id: tenantId,
+        table_name: tableName,
+        display_name: displayName,
+        description: `Auto-registered table "${tableName}"`,
+        fields: [
+          { name: 'id', label: 'ID', type: 'TEXT', required: false, unique: false, indexed: true, order: 0 },
+          { name: 'status', label: 'Status', type: 'SELECT', required: false, unique: false, indexed: false, order: 1 },
+        ] as MetadataField[],
+        created_by: userId || 'system',
+      });
+      table = await this.metadataRegistry.save(metadata);
+    }
+
+    return table;
+  }
+
   async listTables(tenantId: string): Promise<MetadataRegistry[]> {
     return this.metadataRegistry.find({
       where: { tenant_id: tenantId },
@@ -166,7 +206,8 @@ export class DynamicBuilderService {
   }
 
   async createRecord(tenantId: string, tableName: string, dto: CreateRecordDto, userId: string): Promise<DynamicData> {
-    const schema = await this.getTableSchema(tenantId, tableName);
+    // Auto-ensure table exists (don't throw if missing)
+    const schema = await this.ensureTableExists(tenantId, tableName, userId);
     const validationErrors = await this.validateRecordData(tenantId, schema, dto.data, false);
     if (validationErrors.length > 0) {
       throw new BadRequestException({ message: 'Validation failed', errors: validationErrors });
@@ -197,7 +238,7 @@ export class DynamicBuilderService {
 
     if (!record) throw new NotFoundException(`Record not found`);
 
-    const schema = await this.getTableSchema(tenantId, tableName);
+    const schema = await this.ensureTableExists(tenantId, tableName, userId);
     const validationErrors = await this.validateRecordData(tenantId, schema, dto.data, true);
     if (validationErrors.length > 0) {
       throw new BadRequestException({ message: 'Validation failed', errors: validationErrors });
@@ -220,7 +261,8 @@ export class DynamicBuilderService {
   }
 
   async queryRecords(tenantId: string, tableName: string, queryDto: QueryRecordsDto): Promise<{ records: DynamicData[]; total: number; page: number; limit: number }> {
-    await this.getTableSchema(tenantId, tableName);
+    // Auto-ensure table exists instead of throwing
+    await this.ensureTableExists(tenantId, tableName);
 
     const page = queryDto.page || 1;
     const limit = queryDto.limit || 20;
@@ -264,7 +306,7 @@ export class DynamicBuilderService {
   }
 
   async bulkCreate(tenantId: string, tableName: string, records: CreateRecordDto[], userId: string): Promise<{ created: number; failed: number; errors: Array<{ index: number; message: string }> }> {
-    const schema = await this.getTableSchema(tenantId, tableName);
+    const schema = await this.ensureTableExists(tenantId, tableName, userId);
     const results = { created: 0, failed: 0, errors: [] as Array<{ index: number; message: string }> };
 
     const queryRunner = this.dataSource.createQueryRunner();
